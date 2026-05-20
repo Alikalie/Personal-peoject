@@ -16,6 +16,8 @@ export default function AdminLeagues() {
   const [form, setForm] = useState(blankLeague)
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [file, setFile] = useState(null)
   const [notification, setNotification] = useState(null)
 
   useEffect(() => {
@@ -59,29 +61,48 @@ export default function AdminLeagues() {
       setNotification({ type: "error", message: "Name and country are required." })
       return
     }
-
     setSaving(true)
-    const payload = {
-      name: form.name,
-      country: form.country,
-      icon_url: form.icon_url,
-      status: form.status,
+    setNotification(null)
+
+    try {
+      let iconUrl = form.icon_url
+
+      // If a new file is selected, upload to Supabase storage
+      if (file) {
+        setUploading(true)
+        const filePath = `league-icons/${Date.now()}_${file.name.replace(/\s+/g, "_")}`
+        const { error: uploadErr } = await supabase.storage.from("league-icons").upload(filePath, file, { upsert: true })
+        if (uploadErr) {
+          throw uploadErr
+        }
+        const { data: urlData } = supabase.storage.from("league-icons").getPublicUrl(filePath)
+        iconUrl = urlData?.publicUrl || iconUrl
+        setUploading(false)
+      }
+
+      const payload = {
+        name: form.name,
+        country: form.country,
+        icon_url: iconUrl,
+        status: form.status,
+      }
+
+      const response = editing
+        ? await supabase.from("leagues").update(payload).eq("id", editing.id)
+        : await supabase.from("leagues").insert([payload])
+
+      if (response.error) throw response.error
+
+      setNotification({ type: "success", message: editing ? "League updated." : "League added." })
+      setModalOpen(false)
+      loadLeagues()
+    } catch (err) {
+      setNotification({ type: "error", message: err.message || String(err) })
+    } finally {
+      setSaving(false)
+      setUploading(false)
+      setFile(null)
     }
-
-    const response = editing
-      ? await supabase.from("leagues").update(payload).eq("id", editing.id)
-      : await supabase.from("leagues").insert([payload])
-
-    setSaving(false)
-
-    if (response.error) {
-      setNotification({ type: "error", message: response.error.message })
-      return
-    }
-
-    setNotification({ type: "success", message: editing ? "League updated." : "League added." })
-    setModalOpen(false)
-    loadLeagues()
   }
 
   async function deleteLeague(league) {
@@ -221,13 +242,25 @@ export default function AdminLeagues() {
               </label>
               <label className="space-y-2 text-sm text-slate-700 md:col-span-2">
                 Icon URL
-                <input
-                  type="url"
-                  value={form.icon_url}
-                  onChange={(event) => setForm({ ...form, icon_url: event.target.value })}
-                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
-                  placeholder="https://..."
-                />
+                <div className="flex gap-3 items-center">
+                  <input
+                    type="url"
+                    value={form.icon_url}
+                    onChange={(event) => setForm({ ...form, icon_url: event.target.value })}
+                    className="flex-1 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
+                    placeholder="https://..."
+                  />
+                  <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 cursor-pointer hover:border-sky-300">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                      className="hidden"
+                    />
+                    <ImageIcon className="h-4 w-4" /> Upload
+                  </label>
+                </div>
+                {file ? <div className="text-xs text-slate-500 mt-1">Selected: {file.name}</div> : null}
               </label>
               <label className="space-y-2 text-sm text-slate-700">
                 Status

@@ -37,30 +37,38 @@ export default function SiteSettingsAdmin() {
   }, [])
 
   async function loadSettings() {
+    // fetch full settings row to avoid column-mismatch errors if the schema differs
     const [settingsRes, contactsRes] = await Promise.all([
-      supabase.from("site_settings").select("id, site_title, homepage_headline, vip_banner, footer_text, contact_header, contact_intro, contact_description, nav_home_enabled, nav_predictions_enabled, nav_vip_enabled, nav_leagues_enabled, nav_contact_enabled").single(),
-      supabase.from("support_contacts").select("id, label, detail, icon").order("id", { ascending: true }),
+      supabase.from("site_settings").select("*").maybeSingle(),
+      supabase.from("contact_messages").select("id, label, detail, icon").order("id", { ascending: true }),
     ])
 
     if (!settingsRes.error && settingsRes.data) {
-      setSettings((prev) => ({ ...prev, ...{
-        siteTitle: settingsRes.data.site_title || prev.siteTitle,
-        homepageHeadline: settingsRes.data.homepage_headline || prev.homepageHeadline,
-        vipBanner: settingsRes.data.vip_banner || prev.vipBanner,
-        footerText: settingsRes.data.footer_text || prev.footerText,
-        contactHeader: settingsRes.data.contact_header || prev.contactHeader,
-        contactIntro: settingsRes.data.contact_intro || prev.contactIntro,
-        contactDescription: settingsRes.data.contact_description || prev.contactDescription,
-        navHomeEnabled: settingsRes.data.nav_home_enabled ?? prev.navHomeEnabled,
-        navPredictionsEnabled: settingsRes.data.nav_predictions_enabled ?? prev.navPredictionsEnabled,
-        navVipEnabled: settingsRes.data.nav_vip_enabled ?? prev.navVipEnabled,
-        navLeaguesEnabled: settingsRes.data.nav_leagues_enabled ?? prev.navLeaguesEnabled,
-        navContactEnabled: settingsRes.data.nav_contact_enabled ?? prev.navContactEnabled,
-      }}))
+      const data = settingsRes.data || {}
+      setSettings((prev) => ({
+        ...prev,
+        siteTitle: data.site_title || prev.siteTitle,
+        homepageHeadline: data.homepage_headline || prev.homepageHeadline,
+        vipBanner: data.vip_banner || prev.vipBanner,
+        footerText: data.footer_text || prev.footerText,
+        // support both new and legacy field names
+        contactHeader: data.contact_header || data.contact_title || prev.contactHeader,
+        contactIntro: data.contact_intro || prev.contactIntro,
+        contactDescription: data.contact_description || prev.contactDescription,
+        navHomeEnabled: data.nav_home_enabled ?? prev.navHomeEnabled,
+        navPredictionsEnabled: data.nav_predictions_enabled ?? prev.navPredictionsEnabled,
+        navVipEnabled: data.nav_vip_enabled ?? prev.navVipEnabled,
+        navLeaguesEnabled: data.nav_leagues_enabled ?? prev.navLeaguesEnabled,
+        navContactEnabled: data.nav_contact_enabled ?? prev.navContactEnabled,
+      }))
+    } else if (settingsRes.error) {
+      setNotification({ type: "error", message: `Failed to load site settings: ${settingsRes.error.message}` })
     }
 
     if (!contactsRes.error && contactsRes.data) {
       setSupportContacts(contactsRes.data.map((item) => ({ ...item, uid: item.id || `contact-${item.id}` })))
+    } else if (contactsRes.error) {
+      setNotification({ type: "error", message: `Support contacts unavailable: ${contactsRes.error.message}` })
     }
   }
 
@@ -79,7 +87,7 @@ export default function SiteSettingsAdmin() {
 
   async function deleteContact(contact, index) {
     if (contact.id) {
-      const { error } = await supabase.from("support_contacts").delete().eq("id", contact.id)
+      const { error } = await supabase.from("contact_messages").delete().eq("id", contact.id)
       if (error) {
         setNotification({ type: "error", message: error.message })
         return
@@ -98,6 +106,8 @@ export default function SiteSettingsAdmin() {
       vip_banner: settings.vipBanner,
       footer_text: settings.footerText,
       contact_header: settings.contactHeader,
+      // also write legacy field name if present in older schemas
+      contact_title: settings.contactHeader,
       contact_intro: settings.contactIntro,
       contact_description: settings.contactDescription,
       nav_home_enabled: settings.navHomeEnabled,
@@ -107,7 +117,8 @@ export default function SiteSettingsAdmin() {
       nav_contact_enabled: settings.navContactEnabled,
     }
 
-    const { error } = await supabase.from("site_settings").upsert([payload], { onConflict: "id" })
+    // upsert without forcing onConflict to support different schema variants
+    const { error } = await supabase.from("site_settings").upsert([payload])
     setSaving(false)
 
     if (error) {
@@ -121,11 +132,16 @@ export default function SiteSettingsAdmin() {
     setSaving(true)
     setNotification(null)
     const payload = supportContacts.map(({ id, label, detail, icon }) => ({ id, label, detail, icon }))
-    const { error } = await supabase.from("support_contacts").upsert(payload, { onConflict: "id" })
+    const { error } = await supabase.from("contact_messages").upsert(payload)
     setSaving(false)
 
     if (error) {
-      setNotification({ type: "error", message: error.message })
+      // provide actionable message when table is missing
+      if (error.message && error.message.includes("Could not find the table")) {
+        setNotification({ type: "error", message: "Contact messages table is missing in the database. Create the `contact_messages` table in Supabase to enable this feature." })
+      } else {
+        setNotification({ type: "error", message: error.message })
+      }
     } else {
       setNotification({ type: "success", message: "Support contacts saved successfully." })
       loadSettings()

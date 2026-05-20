@@ -53,7 +53,7 @@ The app expects the following tables:
   - `nav_vip_enabled`
   - `nav_leagues_enabled`
   - `nav_contact_enabled`
-- `support_contacts`
+- `contact_messages`
   - `id`, `label`, `detail`, `icon`
 - `contact_messages`
   - `id`, `name`, `email`, `subject`, `message`, `created_at`
@@ -71,7 +71,7 @@ Visit `/admin/settings` to modify site content, support contacts, footer copy, a
 ## Notes
 
 - The contact page now uses `contact_header` to match the admin settings schema.
-- The site falls back to default support contact entries if `support_contacts` is missing.
+- The site falls back to default support contact entries if `contact_messages` is missing.
 - Admin match and VIP pages now persist data to Supabase.
 
 ## Build

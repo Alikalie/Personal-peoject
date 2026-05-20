@@ -84,27 +84,28 @@ export default function AdminMatches() {
 
     setSaving(true)
     const payload = {
-      league_id: form.league_id,
+      league_id: form.league_id ? parseInt(form.league_id, 10) : null,
       home_team: form.home_team,
       away_team: form.away_team,
       match_date: form.match_date,
       status: form.status,
     }
+    let response
+    try {
+      response = editing
+        ? await supabase.from("matches").update(payload).eq("id", editing.id)
+        : await supabase.from("matches").insert([payload])
 
-    const response = editing
-      ? await supabase.from("matches").update(payload).eq("id", editing.id)
-      : await supabase.from("matches").insert([payload])
+      if (response.error) throw response.error
 
-    setSaving(false)
-
-    if (response.error) {
-      setNotification({ type: "error", message: response.error.message })
-      return
+      setNotification({ type: "success", message: editing ? "Match updated." : "Match added." })
+      setModalOpen(false)
+      await loadData()
+    } catch (err) {
+      setNotification({ type: "error", message: err.message || String(err) })
+    } finally {
+      setSaving(false)
     }
-
-    setNotification({ type: "success", message: editing ? "Match updated." : "Match added." })
-    setModalOpen(false)
-    loadData()
   }
 
   async function deleteMatch(match) {

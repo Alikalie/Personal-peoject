@@ -31,6 +31,7 @@ function Navbar() {
     navContactEnabled: true,
   })
   const [loadingSettings, setLoadingSettings] = useState(true)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const linkClasses = ({ isActive }) =>
     `hover:text-sky-400 transition ${isActive ? "text-sky-400" : "text-slate-500"}`
@@ -38,12 +39,8 @@ function Navbar() {
   useEffect(() => {
     async function loadNavSettings() {
       setLoadingSettings(true)
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select(
-          "site_title, nav_home_enabled, nav_predictions_enabled, nav_vip_enabled, nav_leagues_enabled, nav_contact_enabled"
-        )
-        .single()
+      // select full row to tolerate missing columns
+      const { data, error } = await supabase.from("site_settings").select("*").maybeSingle()
 
       if (!error && data) {
         setSiteSettings((prev) => ({
@@ -100,6 +97,23 @@ function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileOpen((v) => !v)}
+            className="md:hidden inline-flex items-center justify-center rounded-lg p-2 border border-slate-200"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? (
+              <svg className="h-5 w-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
+
           <Link
             to="/login"
             className="px-4 py-2 rounded-xl border border-slate-300 hover:border-sky-400 transition text-sm text-slate-700"
@@ -117,6 +131,67 @@ function Navbar() {
           ) : null}
         </div>
       </div>
+
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+
+          <div className="absolute top-0 right-0 w-full max-w-md h-full bg-white shadow-2xl transform transition duration-300">
+            <div className="p-6 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-6">
+                <Link to="/" className="text-lg font-bold text-sky-500">
+                  {siteSettings.siteTitle}
+                </Link>
+                <button onClick={() => setMobileOpen(false)} className="p-2 rounded-md border border-slate-200">
+                  <svg className="h-5 w-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <nav className="flex-1 flex flex-col gap-4">
+                {siteSettings.navHomeEnabled ? (
+                  <NavLink to="/" className="text-slate-800 text-lg font-medium" onClick={() => setMobileOpen(false)}>
+                    Home
+                  </NavLink>
+                ) : null}
+                {siteSettings.navPredictionsEnabled ? (
+                  <NavLink to="/predictions" className="text-slate-800 text-lg font-medium" onClick={() => setMobileOpen(false)}>
+                    Predictions
+                  </NavLink>
+                ) : null}
+                {siteSettings.navVipEnabled ? (
+                  <NavLink to="/vip" className="text-slate-800 text-lg font-medium" onClick={() => setMobileOpen(false)}>
+                    VIP Tips
+                  </NavLink>
+                ) : null}
+                {siteSettings.navLeaguesEnabled ? (
+                  <NavLink to="/leagues" className="text-slate-800 text-lg font-medium" onClick={() => setMobileOpen(false)}>
+                    Leagues
+                  </NavLink>
+                ) : null}
+                {siteSettings.navContactEnabled ? (
+                  <NavLink to="/contact" className="text-slate-800 text-lg font-medium" onClick={() => setMobileOpen(false)}>
+                    Contact
+                  </NavLink>
+                ) : null}
+              </nav>
+
+              <div className="mt-6 space-y-3">
+                <Link to="/login" onClick={() => setMobileOpen(false)} className="block w-full text-center px-4 py-3 rounded-xl border border-slate-200 hover:border-sky-300 text-slate-800">
+                  Login
+                </Link>
+
+                {siteSettings.navVipEnabled ? (
+                  <Link to="/vip" onClick={() => setMobileOpen(false)} className="block w-full text-center px-4 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold">
+                    Join VIP
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </nav>
   )
 }
@@ -708,29 +783,29 @@ function ContactPage() {
   async function loadContactContent() {
     setLoadingContact(true)
     setContactError(null)
-
+    // perform a safe full-row select so the client won't fail if columns are missing
     const [settingsRes, contactsRes] = await Promise.all([
-      supabase
-        .from("site_settings")
-        .select("contact_header, contact_intro, contact_description")
-        .single(),
-      supabase.from("support_contacts").select("id, label, detail, icon").order("id", { ascending: true }),
+      supabase.from("site_settings").select("*").maybeSingle(),
+      supabase.from("contact_messages").select("id, name, email, subject, message, created_at").order("created_at", { ascending: false }),
     ])
 
-    if (settingsRes.error && !settingsRes.data) {
-      setContactError(settingsRes.error.message)
-    } else if (settingsRes.data) {
+    // map fields defensively (support both contact_header and legacy contact_title)
+    if (!settingsRes.error && settingsRes.data) {
+      const data = settingsRes.data || {}
       setSettings((prev) => ({
         ...prev,
-        contactTitle: settingsRes.data.contact_header || prev.contactTitle,
-        contactIntro: settingsRes.data.contact_intro || prev.contactIntro,
-        contactDescription: settingsRes.data.contact_description || prev.contactDescription,
+        contactTitle: data.contact_header || data.contact_title || prev.contactTitle,
+        contactIntro: data.contact_intro || data.contact_intro || prev.contactIntro,
+        contactDescription: data.contact_description || prev.contactDescription,
       }))
+    } else if (settingsRes.error) {
+      setContactError(settingsRes.error.message)
     }
 
     if (contactsRes.error || !contactsRes.data) {
+      // if contact_messages table is missing or returned an error, keep fallbacks
       if (contactsRes.error) {
-        setContactError((prev) => prev ? `${prev} — ${contactsRes.error.message}` : contactsRes.error.message)
+        setContactError((prev) => (prev ? `${prev} — ${contactsRes.error.message}` : contactsRes.error.message))
       }
       setSupportContacts([
         { id: "fallback-1", label: "Support Email", detail: "support@betprotips.com", icon: "📧" },
@@ -890,6 +965,7 @@ function Footer() {
     leagues: true,
     contact: true,
   })
+  const [siteTitleFooter, setSiteTitleFooter] = useState("BetPro Tips")
   const [loadingFooter, setLoadingFooter] = useState(true)
 
   useEffect(() => {
@@ -898,27 +974,22 @@ function Footer() {
 
   async function loadFooterContent() {
     setLoadingFooter(true)
+    // fetch entire settings row to avoid errors if some columns don't exist
     const [settingsRes, contactsRes] = await Promise.all([
-      supabase
-        .from("site_settings")
-        .select(
-          "footer_text, nav_home_enabled, nav_predictions_enabled, nav_vip_enabled, nav_leagues_enabled, nav_contact_enabled"
-        )
-        .single(),
-      supabase.from("support_contacts").select("id, label, detail").order("id", { ascending: true }),
+      supabase.from("site_settings").select("*").maybeSingle(),
+      supabase.from("contact_messages").select("id, name, email, subject, message, created_at").order("created_at", { ascending: false }),
     ])
 
-    if (settingsRes.data?.footer_text) {
-      setFooterText(settingsRes.data.footer_text)
-    }
-
-    if (settingsRes.data) {
+    if (!settingsRes.error && settingsRes.data) {
+      const data = settingsRes.data || {}
+      if (data.footer_text) setFooterText(data.footer_text)
+      if (data.site_title) setSiteTitleFooter(data.site_title)
       setLinkVisibility({
-        home: settingsRes.data.nav_home_enabled ?? true,
-        predictions: settingsRes.data.nav_predictions_enabled ?? true,
-        vip: settingsRes.data.nav_vip_enabled ?? true,
-        leagues: settingsRes.data.nav_leagues_enabled ?? true,
-        contact: settingsRes.data.nav_contact_enabled ?? true,
+        home: data.nav_home_enabled ?? true,
+        predictions: data.nav_predictions_enabled ?? true,
+        vip: data.nav_vip_enabled ?? true,
+        leagues: data.nav_leagues_enabled ?? true,
+        contact: data.nav_contact_enabled ?? true,
       })
     }
 
@@ -993,7 +1064,7 @@ function Footer() {
         </div>
       </div>
       <div className="border-t border-slate-200 py-6 text-center text-slate-500 text-sm">
-        © 2026 BetPro Tips. All rights reserved.
+        © {new Date().getFullYear()} {siteTitleFooter}. All rights reserved.
       </div>
     </footer>
   )
