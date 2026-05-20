@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react"
-import { BrowserRouter, Routes, Route, NavLink, Link, Navigate, useNavigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, NavLink, Link, Navigate, useLocation } from "react-router-dom"
 import { supabase } from "./lib/supabase"
+import AuthPage from "./pages/AuthPage"
 import AdminLayout from "./pages/admin/AdminLayout"
 import AdminDashboard from "./pages/admin/AdminDashboard"
 import AdminPredictions from "./pages/admin/AdminPredictions"
 import AdminMatches from "./pages/admin/AdminMatches"
 import AdminLeagues from "./pages/admin/AdminLeagues"
 import AdminUsers from "./pages/admin/AdminUsers"
+import AdminMessages from "./pages/admin/AdminMessages"
 import SiteSettingsAdmin from "./pages/admin/SiteSettingsAdmin"
 import VipManagementAdmin from "./pages/admin/VipManagementAdmin"
+import ForgotPassword from "./pages/ForgotPassword"
+import ProtectedAdminRoute from "./components/ProtectedAdminRoute"
 
 const resultStatusClasses = {
   pending: "bg-yellow-300 text-black",
@@ -18,62 +22,103 @@ const resultStatusClasses = {
 }
 
 function Navbar() {
+  const [siteSettings, setSiteSettings] = useState({
+    siteTitle: "BetPro Tips",
+    navHomeEnabled: true,
+    navPredictionsEnabled: true,
+    navVipEnabled: true,
+    navLeaguesEnabled: true,
+    navContactEnabled: true,
+  })
+  const [loadingSettings, setLoadingSettings] = useState(true)
+
   const linkClasses = ({ isActive }) =>
-    `hover:text-sky-400 transition ${isActive ? "text-sky-400" : "text-gray-300"}`
+    `hover:text-sky-400 transition ${isActive ? "text-sky-400" : "text-slate-500"}`
+
+  useEffect(() => {
+    async function loadNavSettings() {
+      setLoadingSettings(true)
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select(
+          "site_title, nav_home_enabled, nav_predictions_enabled, nav_vip_enabled, nav_leagues_enabled, nav_contact_enabled"
+        )
+        .single()
+
+      if (!error && data) {
+        setSiteSettings((prev) => ({
+          ...prev,
+          siteTitle: data.site_title || prev.siteTitle,
+          navHomeEnabled: data.nav_home_enabled ?? prev.navHomeEnabled,
+          navPredictionsEnabled: data.nav_predictions_enabled ?? prev.navPredictionsEnabled,
+          navVipEnabled: data.nav_vip_enabled ?? prev.navVipEnabled,
+          navLeaguesEnabled: data.nav_leagues_enabled ?? prev.navLeaguesEnabled,
+          navContactEnabled: data.nav_contact_enabled ?? prev.navContactEnabled,
+        }))
+      }
+      setLoadingSettings(false)
+    }
+
+    loadNavSettings()
+  }, [])
 
   return (
-    <nav className="border-b border-gray-800 bg-gray-950/90 backdrop-blur sticky top-0 z-50">
+    <nav className="border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <div>
           <Link to="/" className="text-xl font-bold tracking-wide text-sky-400">
-            BetPro Tips
+            {siteSettings.siteTitle}
           </Link>
         </div>
 
         <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-          <NavLink to="/" className={linkClasses} end>
-            Home
-          </NavLink>
-          <NavLink to="/predictions" className={linkClasses}>
-            Predictions
-          </NavLink>
-          <NavLink to="/vip" className={linkClasses}>
-            VIP Tips
-          </NavLink>
-          <NavLink to="/leagues" className={linkClasses}>
-            Leagues
-          </NavLink>
-          <NavLink to="/admin" className={linkClasses}>
-            Admin
-          </NavLink>
-          <NavLink to="/contact" className={linkClasses}>
-            Contact
-          </NavLink>
+          {siteSettings.navHomeEnabled ? (
+            <NavLink to="/" className={linkClasses} end>
+              Home
+            </NavLink>
+          ) : null}
+          {siteSettings.navPredictionsEnabled ? (
+            <NavLink to="/predictions" className={linkClasses}>
+              Predictions
+            </NavLink>
+          ) : null}
+          {siteSettings.navVipEnabled ? (
+            <NavLink to="/vip" className={linkClasses}>
+              VIP Tips
+            </NavLink>
+          ) : null}
+          {siteSettings.navLeaguesEnabled ? (
+            <NavLink to="/leagues" className={linkClasses}>
+              Leagues
+            </NavLink>
+          ) : null}
+          {siteSettings.navContactEnabled ? (
+            <NavLink to="/contact" className={linkClasses}>
+              Contact
+            </NavLink>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-3">
           <Link
             to="/login"
-            className="px-4 py-2 rounded-xl border border-gray-700 hover:border-sky-400 transition text-sm"
+            className="px-4 py-2 rounded-xl border border-slate-300 hover:border-sky-400 transition text-sm text-slate-700"
           >
             Login
           </Link>
 
-          <Link
-            to="/vip"
-            className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-semibold transition text-sm"
-          >
-            Join VIP
-          </Link>
+          {siteSettings.navVipEnabled ? (
+            <Link
+              to="/vip"
+              className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-semibold transition text-sm"
+            >
+              Join VIP
+            </Link>
+          ) : null}
         </div>
       </div>
     </nav>
   )
-}
-
-function ProtectedRoute({ children }) {
-  const isAuthenticated = localStorage.getItem("isAdmin") === "true"
-  return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
 function HomePage() {
@@ -130,7 +175,7 @@ function HomePage() {
             <span className="text-sky-400"> Football Tips</span>
           </h1>
 
-          <p className="text-gray-400 text-base mt-6 leading-relaxed max-w-xl">
+          <p className="text-slate-600 text-base mt-6 leading-relaxed max-w-xl">
             Get accurate football predictions, VIP betting tips, odds history,
             match analysis, and expert picks from all major leagues worldwide.
           </p>
@@ -145,7 +190,7 @@ function HomePage() {
 
             <Link
               to="/vip"
-              className="px-6 py-3 rounded-2xl border border-gray-700 hover:border-sky-400 font-semibold text-sm transition"
+              className="px-6 py-3 rounded-2xl border border-slate-300 hover:border-sky-400 font-semibold text-sm transition"
             >
               Become VIP
             </Link>
@@ -154,17 +199,17 @@ function HomePage() {
           <div className="grid grid-cols-3 gap-6 mt-14">
             <div>
               <h2 className="text-3xl font-black text-sky-400">95%</h2>
-              <p className="text-gray-400 mt-2">Winning Accuracy</p>
+              <p className="text-slate-600 mt-2">Winning Accuracy</p>
             </div>
 
             <div>
               <h2 className="text-3xl font-black text-sky-400">50K+</h2>
-              <p className="text-gray-400 mt-2">Community Members</p>
+              <p className="text-slate-600 mt-2">Community Members</p>
             </div>
 
             <div>
               <h2 className="text-3xl font-black text-sky-400">1000+</h2>
-              <p className="text-gray-400 mt-2">Predictions Posted</p>
+              <p className="text-slate-600 mt-2">Predictions Posted</p>
             </div>
           </div>
         </div>
@@ -172,11 +217,11 @@ function HomePage() {
         <div className="relative">
           <div className="absolute inset-0 bg-sky-500/20 blur-3xl rounded-full"></div>
 
-          <div className="relative bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl">
+          <div className="relative bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-xl font-bold">Today's Top Tips</h3>
-                <p className="text-gray-400 mt-1">From the daily table</p>
+                <p className="text-slate-600 mt-1">From the daily table</p>
               </div>
 
               <div className="px-3 py-2 rounded-xl bg-sky-500 text-black font-bold text-sm">
@@ -185,26 +230,26 @@ function HomePage() {
             </div>
 
             {tipsLoading ? (
-              <p className="text-gray-400">Loading today's top tips...</p>
+              <p className="text-slate-600">Loading today's top tips...</p>
             ) : tipsError ? (
               <p className="text-red-400">Failed to load top tips.</p>
             ) : (
               <div className="space-y-5">
                 {topTipItems.length > 0 ? (
                   topTipItems.map((tip) => (
-                    <div key={tip.id} className="bg-gray-800 rounded-2xl p-4">
+                    <div key={tip.id} className="bg-slate-100 rounded-2xl p-4">
                       <div className="flex justify-between items-center mb-3">
                         <h4 className="text-lg font-bold">{formatMatchName(tip)}</h4>
                         <span className="text-sky-400 font-bold">{tip.current_odds || "-"}</span>
                       </div>
 
-                      <p className="text-gray-300 text-sm">Prediction: {tip.prediction || "N/A"}</p>
-                      <p className="text-gray-500 text-xs mt-2">{tip.league || "Daily"} • {tip.match_date ? new Date(tip.match_date).toLocaleDateString() : "Date TBD"}</p>
+                      <p className="text-slate-700 text-sm">Prediction: {tip.prediction || "N/A"}</p>
+                      <p className="text-slate-500 text-xs mt-2">{tip.league || "Daily"} • {tip.match_date ? new Date(tip.match_date).toLocaleDateString() : "Date TBD"}</p>
                     </div>
                   ))
                 ) : (
-                  <div className="bg-gray-800 rounded-2xl p-4">
-                    <p className="text-gray-400">No top tips available right now.</p>
+                  <div className="bg-slate-100 rounded-2xl p-4">
+                    <p className="text-slate-600">No top tips available right now.</p>
                   </div>
                 )}
               </div>
@@ -219,41 +264,41 @@ function HomePage() {
             Why Choose <span className="text-sky-400">BetPro</span>
           </h2>
 
-          <p className="text-gray-400 mt-5 text-base max-w-2xl mx-auto">
+          <p className="text-slate-600 mt-5 text-base max-w-2xl mx-auto">
             Advanced football predictions platform built for serious bettors.
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 hover:border-sky-400 transition">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 hover:border-sky-400 transition">
             <div className="text-4xl mb-5">⚽</div>
             <h3 className="text-xl font-bold mb-3">All Leagues</h3>
-            <p className="text-gray-400 leading-relaxed text-sm">
+            <p className="text-slate-600 leading-relaxed text-sm">
               Predictions from Premier League, La Liga, Serie A, Bundesliga,
               Champions League, and more.
             </p>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 hover:border-sky-400 transition">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 hover:border-sky-400 transition">
             <div className="text-4xl mb-5">📈</div>
             <h3 className="text-xl font-bold mb-3">Odds History</h3>
-            <p className="text-gray-400 leading-relaxed text-sm">
+            <p className="text-slate-600 leading-relaxed text-sm">
               Track odds movement and analyze prediction performance over time.
             </p>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 hover:border-sky-400 transition">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 hover:border-sky-400 transition">
             <div className="text-4xl mb-5">🔒</div>
             <h3 className="text-xl font-bold mb-3">VIP Predictions</h3>
-            <p className="text-gray-400 leading-relaxed text-sm">
+            <p className="text-slate-600 leading-relaxed text-sm">
               Exclusive premium betting tips and high-confidence predictions.
             </p>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 hover:border-sky-400 transition">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 hover:border-sky-400 transition">
             <div className="text-4xl mb-5">🏆</div>
             <h3 className="text-xl font-bold mb-3">Expert Analysis</h3>
-            <p className="text-gray-400 leading-relaxed text-sm">
+            <p className="text-slate-600 leading-relaxed text-sm">
               Detailed match previews, team form, and betting insights.
             </p>
           </div>
@@ -272,14 +317,14 @@ function HomePage() {
           <div className="flex flex-wrap justify-center gap-6 mt-12">
             <Link
               to="/vip"
-              className="px-8 py-4 rounded-2xl bg-black text-white font-bold hover:bg-gray-900 transition"
+              className="px-8 py-4 rounded-2xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition"
             >
               Join VIP Now
             </Link>
 
             <Link
               to="/contact"
-              className="px-8 py-4 rounded-2xl border-2 border-black font-bold hover:bg-black hover:text-white transition"
+              className="px-8 py-4 rounded-2xl border-2 border-slate-900 font-bold hover:bg-slate-900 hover:text-white transition"
             >
               Contact Admin
             </Link>
@@ -305,19 +350,19 @@ function HomePage() {
           ].map((league) => (
             <div
               key={league.name}
-              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 text-center hover:border-sky-400 transition"
+              className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:border-sky-400 transition"
             >
               <div className="text-4xl mb-4">{league.icon}</div>
-              <h3 className="text-sm font-semibold">{league.name}</h3>
+              <h3 className="text-sm font-semibold text-slate-900">{league.name}</h3>
             </div>
           ))}
         </div>
       </section>
 
       <section className="max-w-6xl mx-auto px-6 pb-20">
-        <div className="bg-gray-900 border border-gray-800 rounded-[40px] p-10 text-center">
-          <h3 className="text-xl font-bold text-white">Predictions</h3>
-          <p className="text-gray-400 mt-3">View today's and past predictions on the Predictions page.</p>
+        <div className="bg-white border border-slate-200 rounded-[40px] p-10 text-center">
+          <h3 className="text-xl font-bold text-slate-900">Predictions</h3>
+          <p className="text-slate-600 mt-3">View today's and past predictions on the Predictions page.</p>
           <div className="mt-6">
             <Link to="/predictions" className="px-6 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-black font-bold">
               View Predictions
@@ -381,29 +426,29 @@ function PredictionsPage() {
     <div className="max-w-7xl mx-auto px-6 py-24 space-y-14">
       <div>
         <h1 className="text-4xl font-black text-sky-400 mb-3">Predictions</h1>
-        <p className="text-gray-400 max-w-3xl mb-6">
+        <p className="text-slate-600 max-w-3xl mb-6">
           Browse the latest predictions for today and review past performance from recent matches.
         </p>
-        {loading && <p className="text-gray-400">Loading predictions...</p>}
+        {loading && <p className="text-slate-600">Loading predictions...</p>}
         {error && (
-          <div className="text-red-400 bg-gray-900 p-3 rounded-md mb-4">
+          <div className="text-red-700 bg-red-100 p-3 rounded-md mb-4">
             Error loading predictions: {error.message || JSON.stringify(error)}
           </div>
         )}
       </div>
 
-      <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6">
+      <section className="bg-white border border-slate-200 rounded-3xl p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-white">Daily Predictions</h2>
-            <p className="text-gray-400 text-sm">Today's top betting tips and odds.</p>
+            <h2 className="text-2xl font-bold text-slate-900">Daily Predictions</h2>
+            <p className="text-slate-600 text-sm">Today's top betting tips and odds.</p>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-800 text-sm">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead>
-              <tr className="text-left text-gray-400 uppercase text-xs tracking-wide">
+              <tr className="text-left text-slate-600 uppercase text-xs tracking-wide">
                 <th className="px-4 py-3">League</th>
                 <th className="px-4 py-3">Home Team</th>
                 <th className="px-4 py-3">Away Team</th>
@@ -414,26 +459,26 @@ function PredictionsPage() {
                 <th className="px-4 py-3">Match Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="divide-y divide-slate-200">
               {dailyPredictions.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-950/80 transition">
-                  <td className="px-4 py-4 text-gray-100">{item.matches?.leagues?.name || '-'}</td>
-                  <td className="px-4 py-4 text-gray-100">{item.matches?.home_team || '-'}</td>
-                  <td className="px-4 py-4 text-gray-100">{item.matches?.away_team || '-'}</td>
-                  <td className="px-4 py-4 text-gray-300">{item.prediction}</td>
+                <tr key={item.id} className="hover:bg-slate-100 transition">
+                  <td className="px-4 py-4 text-slate-700">{item.matches?.leagues?.name || '-'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.matches?.home_team || '-'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.matches?.away_team || '-'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.prediction}</td>
                   <td className="px-4 py-4 text-sky-400">{item.current_odds || item.odds}</td>
                   <td className="px-4 py-4">
-                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${resultStatusClasses[item.result] || 'bg-gray-600 text-white'}`}>
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${resultStatusClasses[item.result] || 'bg-slate-500 text-white'}`}>
                       {item.result}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-gray-300">{item.is_vip ? 'Yes' : 'No'}</td>
-                  <td className="px-4 py-4 text-gray-300">{item.matches?.match_date || '-'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.is_vip ? 'Yes' : 'No'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.matches?.match_date || '-'}</td>
                 </tr>
               ))}
               {dailyPredictions.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-4 text-gray-400">No daily predictions found.</td>
+                  <td colSpan={8} className="px-4 py-4 text-slate-600">No daily predictions found.</td>
                 </tr>
               )}
             </tbody>
@@ -441,18 +486,18 @@ function PredictionsPage() {
         </div>
       </section>
 
-      <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6">
+      <section className="bg-white border border-slate-200 rounded-3xl p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-white">Past Predictions</h2>
-            <p className="text-gray-400 text-sm">Recent results and performance history.</p>
+            <h2 className="text-2xl font-bold text-slate-900">Past Predictions</h2>
+            <p className="text-slate-600 text-sm">Recent results and performance history.</p>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-800 text-sm">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead>
-              <tr className="text-left text-gray-400 uppercase text-xs tracking-wide">
+              <tr className="text-left text-slate-600 uppercase text-xs tracking-wide">
                 <th className="px-4 py-3">League</th>
                 <th className="px-4 py-3">Home Team</th>
                 <th className="px-4 py-3">Away Team</th>
@@ -463,26 +508,26 @@ function PredictionsPage() {
                 <th className="px-4 py-3">Match Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="divide-y divide-slate-200">
               {pastPredictions.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-950/80 transition">
-                  <td className="px-4 py-4 text-gray-100">{item.matches?.leagues?.name || '-'}</td>
-                  <td className="px-4 py-4 text-gray-100">{item.matches?.home_team || '-'}</td>
-                  <td className="px-4 py-4 text-gray-100">{item.matches?.away_team || '-'}</td>
-                  <td className="px-4 py-4 text-gray-300">{item.prediction}</td>
+                <tr key={item.id} className="hover:bg-slate-100 transition">
+                  <td className="px-4 py-4 text-slate-700">{item.matches?.leagues?.name || '-'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.matches?.home_team || '-'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.matches?.away_team || '-'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.prediction}</td>
                   <td className="px-4 py-4 text-sky-400">{item.current_odds || item.odds}</td>
                   <td className="px-4 py-4">
-                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${resultStatusClasses[item.result] || 'bg-gray-600 text-white'}`}>
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${resultStatusClasses[item.result] || 'bg-slate-500 text-white'}`}>
                       {item.result}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-gray-300">{item.is_vip ? 'Yes' : 'No'}</td>
-                  <td className="px-4 py-4 text-gray-300">{item.matches?.match_date || '-'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.is_vip ? 'Yes' : 'No'}</td>
+                  <td className="px-4 py-4 text-slate-700">{item.matches?.match_date || '-'}</td>
                 </tr>
               ))}
               {pastPredictions.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-4 text-gray-400">No past predictions found.</td>
+                  <td colSpan={8} className="px-4 py-4 text-slate-600">No past predictions found.</td>
                 </tr>
               )}
             </tbody>
@@ -494,49 +539,148 @@ function PredictionsPage() {
 }
 
 function VIPPage() {
+  const vipPackages = [
+    {
+      title: "Starter Package",
+      price: "$19.99",
+      perks: [
+        "3 daily predictions",
+        "Basic odds analysis",
+        "Email support",
+      ],
+      tone: "bg-slate-50",
+    },
+    {
+      title: "Pro Package",
+      price: "$49.99",
+      perks: [
+        "7 daily predictions",
+        "VIP accumulator tips",
+        "Priority support",
+      ],
+      tone: "bg-white",
+    },
+    {
+      title: "Elite Package",
+      price: "$99.99",
+      perks: [
+        "Unlimited daily tips",
+        "Premium match analysis",
+        "Dedicated WhatsApp support",
+      ],
+      tone: "bg-slate-50",
+    },
+  ]
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-24">
-      <h1 className="text-4xl font-black text-sky-400 mb-6">VIP Tips</h1>
-      <p className="text-gray-400 max-w-3xl mb-10">
-        Join the VIP club for premium betting advice, exclusive odds and expert insights across top leagues.
-      </p>
+      <div className="text-center mb-14">
+        <h1 className="text-4xl font-black text-sky-400 mb-4">VIP Packages</h1>
+        <p className="text-slate-600 max-w-3xl mx-auto">
+          Choose the VIP plan that fits your football betting style and get access to high-confidence predictions, expert analysis, and exclusive support.
+        </p>
+      </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6">
-          <h2 className="text-xl font-bold mb-3">Daily VIP Picks</h2>
-          <p className="text-gray-400 text-sm leading-relaxed">Get early access to high-confidence betting selections from our tipsters.</p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6">
-          <h2 className="text-xl font-bold mb-3">Premium Insights</h2>
-          <p className="text-gray-400 text-sm leading-relaxed">Benefit from expert match previews, form analysis, and odds movement data.</p>
-        </div>
+      <div className="grid gap-6 md:grid-cols-3">
+        {vipPackages.map((pkg) => (
+          <div key={pkg.title} className={`rounded-3xl border border-slate-200 p-6 shadow-sm ${pkg.tone}`}>
+            <h2 className="text-2xl font-bold text-slate-900">{pkg.title}</h2>
+            <p className="text-4xl font-black text-sky-400 mt-4 mb-6">{pkg.price}</p>
+            <ul className="space-y-3 mb-8 text-slate-600 text-sm">
+              {pkg.perks.map((perk) => (
+                <li key={perk} className="flex items-start gap-3">
+                  <span className="mt-1 text-sky-400">•</span>
+                  <span>{perk}</span>
+                </li>
+              ))}
+            </ul>
+            <button className="w-full rounded-2xl bg-sky-500 text-black font-semibold py-3 hover:bg-sky-400 transition">
+              Choose {pkg.title}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-14 rounded-3xl border border-slate-200 bg-white p-8 text-slate-700 shadow-sm">
+        <h2 className="text-2xl font-bold text-slate-900 mb-4">Why VIP?</h2>
+        <p className="leading-relaxed">
+          The VIP club gives you early access to the best football betting selections, deeper match previews, and a higher chance to win with curated tips from our expert analysts.
+        </p>
       </div>
     </div>
   )
 }
 
 function LeaguesPage() {
-  const leagues = [
-    "Premier League",
-    "La Liga",
-    "Serie A",
-    "Bundesliga",
-    "Ligue 1",
-    "Champions League",
-  ]
+  const [leagues, setLeagues] = useState([])
+  const [loadingLeagues, setLoadingLeagues] = useState(true)
+  const [leagueError, setLeagueError] = useState(null)
+
+  useEffect(() => {
+    loadLeagues()
+  }, [])
+
+  async function loadLeagues() {
+    setLoadingLeagues(true)
+    setLeagueError(null)
+
+    const { data, error } = await supabase
+      .from("leagues")
+      .select("id, name, country, status, icon_url")
+      .order("name", { ascending: true })
+
+    if (error) {
+      setLeagueError(error.message)
+      setLeagues([
+        { id: "fallback-1", name: "Premier League", country: "England", status: "Active" },
+        { id: "fallback-2", name: "La Liga", country: "Spain", status: "Active" },
+        { id: "fallback-3", name: "Serie A", country: "Italy", status: "Active" },
+      ])
+    } else {
+      setLeagues(data || [])
+    }
+
+    setLoadingLeagues(false)
+  }
+
+  const leagueIcons = {
+    "Premier League": "🏆",
+    "La Liga": "🇪🇸",
+    "Serie A": "🇮🇹",
+    "Bundesliga": "🇩🇪",
+    "Ligue 1": "🇫🇷",
+    "Champions League": "🏟️",
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-24">
-      <h1 className="text-4xl font-black text-sky-400 mb-6">Leagues</h1>
-      <p className="text-gray-400 max-w-3xl mb-10">
-        Explore our coverage of the world’s top football leagues and see which competitions our predictions focus on.
-      </p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-4xl font-black text-sky-400 mb-6">Leagues</h1>
+          <p className="text-slate-600 max-w-3xl">
+            Explore our coverage of the world’s top football leagues and discover the competitions behind every prediction.
+          </p>
+        </div>
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-700 shadow-sm">
+          {loadingLeagues ? "Loading leagues..." : leagueError ? leagueError : `${leagues.length} leagues available`}
+        </div>
+      </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+      <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {leagues.map((league) => (
-          <div key={league} className="bg-gray-900 border border-gray-800 rounded-3xl p-6 text-center">
-            <div className="text-4xl mb-4">🏟️</div>
-            <h2 className="text-lg font-semibold">{league}</h2>
+          <div key={league.id} className="bg-white border border-slate-200 rounded-3xl p-6 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-20 w-20 overflow-hidden rounded-full bg-slate-100 flex items-center justify-center text-4xl">
+              {league.icon_url ? (
+                <img src={league.icon_url} alt={league.name} className="h-full w-full object-cover" />
+              ) : (
+                leagueIcons[league.name] || "🏟️"
+              )}
+            </div>
+            <h2 className="text-lg font-semibold text-slate-900">{league.name}</h2>
+            <p className="mt-3 text-sm text-slate-500">{league.country || "International"}</p>
+            <span className="mt-4 inline-flex rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
+              {league.status || "Active"}
+            </span>
           </div>
         ))}
       </div>
@@ -545,133 +689,293 @@ function LeaguesPage() {
 }
 
 function ContactPage() {
-  return (
-    <div className="max-w-6xl mx-auto px-6 py-24">
-      <h1 className="text-4xl font-black text-sky-400 mb-6">Contact</h1>
-      <p className="text-gray-400 max-w-3xl mb-10">
-        Reach out to our support team for VIP access, partnership inquiries, or general questions.
-      </p>
+  const [supportContacts, setSupportContacts] = useState([])
+  const [settings, setSettings] = useState({
+    contactTitle: "Contact",
+    contactIntro: "Reach out to our support team for VIP access, partnership inquiries, or general questions.",
+    contactDescription: "Our team is available 24/7 to help you with VIP upgrades, membership information, and urgent questions.",
+  })
+  const [loadingContact, setLoadingContact] = useState(true)
+  const [contactError, setContactError] = useState(null)
+  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" })
+  const [statusMessage, setStatusMessage] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6">
-          <h2 className="text-xl font-bold mb-3">Support</h2>
-          <p className="text-gray-400 text-sm leading-relaxed">
-            Email: support@betprotips.com
-          </p>
-          <p className="text-gray-400 text-sm leading-relaxed mt-3">
-            WhatsApp: +232 XXX XXX XXX
-          </p>
-        </div>
+  useEffect(() => {
+    loadContactContent()
+  }, [])
 
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6">
-          <h2 className="text-xl font-bold mb-3">Office</h2>
-          <p className="text-gray-400 text-sm leading-relaxed">
-            Available 24/7 for VIP members and new signups.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
+  async function loadContactContent() {
+    setLoadingContact(true)
+    setContactError(null)
 
-function LoginPage() {
-  const navigate = useNavigate()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState(null)
+    const [settingsRes, contactsRes] = await Promise.all([
+      supabase
+        .from("site_settings")
+        .select("contact_header, contact_intro, contact_description")
+        .single(),
+      supabase.from("support_contacts").select("id, label, detail, icon").order("id", { ascending: true }),
+    ])
 
-  const handleLogin = async (event) => {
+    if (settingsRes.error && !settingsRes.data) {
+      setContactError(settingsRes.error.message)
+    } else if (settingsRes.data) {
+      setSettings((prev) => ({
+        ...prev,
+        contactTitle: settingsRes.data.contact_header || prev.contactTitle,
+        contactIntro: settingsRes.data.contact_intro || prev.contactIntro,
+        contactDescription: settingsRes.data.contact_description || prev.contactDescription,
+      }))
+    }
+
+    if (contactsRes.error || !contactsRes.data) {
+      if (contactsRes.error) {
+        setContactError((prev) => prev ? `${prev} — ${contactsRes.error.message}` : contactsRes.error.message)
+      }
+      setSupportContacts([
+        { id: "fallback-1", label: "Support Email", detail: "support@betprotips.com", icon: "📧" },
+        { id: "fallback-2", label: "WhatsApp", detail: "+232 XXX XXX XXX", icon: "📱" },
+      ])
+    } else {
+      setSupportContacts(contactsRes.data)
+    }
+
+    setLoadingContact(false)
+  }
+
+  async function handleSubmit(event) {
     event.preventDefault()
-    setError(null)
+    setSubmitting(true)
+    setStatusMessage(null)
 
-    const isValidAdmin = email === "admin@betprotips.com" && password === "admin123"
-    if (!isValidAdmin) {
-      setError("Invalid admin credentials. Please try again.")
+    const { error } = await supabase.from("contact_messages").insert([
+      {
+        name: form.name,
+        email: form.email,
+        subject: form.subject,
+        message: form.message,
+      },
+    ])
+
+    setSubmitting(false)
+    if (error) {
+      setStatusMessage({ type: "error", text: error.message })
       return
     }
 
-    localStorage.setItem("isAdmin", "true")
-    navigate("/admin", { replace: true })
+    setStatusMessage({ type: "success", text: "Your message has been sent. Our team will reach out shortly." })
+    setForm({ name: "", email: "", subject: "", message: "" })
   }
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-24">
-      <h1 className="text-4xl font-black text-sky-400 mb-6">Admin Login</h1>
-      <p className="text-gray-400 max-w-3xl mb-10">
-        Enter your admin credentials to access the dashboard.
-      </p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-4xl font-black text-sky-400 mb-6">{settings.contactTitle}</h1>
+          <p className="text-slate-600 max-w-3xl">{settings.contactIntro}</p>
+        </div>
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-700 shadow-sm">
+          {loadingContact ? "Loading support channels..." : supportContacts.length ? `${supportContacts.length} support contacts available` : "No support contacts configured"}
+        </div>
+      </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8 max-w-md mx-auto">
-        <form onSubmit={handleLogin} className="space-y-6">
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+      <div className="mt-10 grid gap-8 xl:grid-cols-[1.3fr_0.9fr]">
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">Support Contacts</h2>
+            <p className="text-slate-600 mb-6">{settings.contactDescription}</p>
 
-          <div>
-            <label className="block text-gray-300 text-sm font-semibold mb-2">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="admin@betprotips.com"
-              className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none focus:border-sky-400"
-            />
+            {contactError ? (
+              <div className="rounded-3xl bg-red-50 p-4 text-sm text-red-700">{contactError}</div>
+            ) : null}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {supportContacts.length > 0 ? (
+                supportContacts.map((contact) => (
+                  <div key={contact.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500 text-xl text-black">
+                        {contact.icon || "📞"}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{contact.label}</p>
+                        <p className="text-sm text-slate-600">{contact.detail}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-slate-600">
+                  No support contacts have been configured yet.
+                </div>
+              )}
+            </div>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-gray-300 text-sm font-semibold mt-6 mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter password"
-              className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none focus:border-sky-400"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="mt-8 w-full rounded-2xl bg-sky-500 hover:bg-sky-400 text-black font-bold py-3 transition"
-          >
-            Sign In
-          </button>
-        </form>
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">Send a Message</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Full name</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
+                placeholder="Enter your name"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Email address</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+                className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Subject</label>
+              <input
+                type="text"
+                value={form.subject}
+                onChange={(event) => setForm({ ...form, subject: event.target.value })}
+                className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
+                placeholder="What do you need help with?"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Message</label>
+              <textarea
+                value={form.message}
+                onChange={(event) => setForm({ ...form, message: event.target.value })}
+                className="w-full min-h-[140px] rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
+                placeholder="Tell us more about your request"
+                required
+              />
+            </div>
+            {statusMessage ? (
+              <div className={`rounded-3xl p-4 text-sm ${statusMessage.type === "error" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+                {statusMessage.text}
+              </div>
+            ) : null}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex w-full items-center justify-center rounded-3xl bg-sky-500 px-6 py-3 text-sm font-semibold text-black hover:bg-sky-400 transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? "Sending message..." : "Send Message"}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )
 }
 
 function Footer() {
+  const [footerText, setFooterText] = useState(
+    "Professional football betting predictions platform providing daily expert tips and VIP betting analysis."
+  )
+  const [supportContacts, setSupportContacts] = useState([])
+  const [linkVisibility, setLinkVisibility] = useState({
+    home: true,
+    predictions: true,
+    vip: true,
+    leagues: true,
+    contact: true,
+  })
+  const [loadingFooter, setLoadingFooter] = useState(true)
+
+  useEffect(() => {
+    loadFooterContent()
+  }, [])
+
+  async function loadFooterContent() {
+    setLoadingFooter(true)
+    const [settingsRes, contactsRes] = await Promise.all([
+      supabase
+        .from("site_settings")
+        .select(
+          "footer_text, nav_home_enabled, nav_predictions_enabled, nav_vip_enabled, nav_leagues_enabled, nav_contact_enabled"
+        )
+        .single(),
+      supabase.from("support_contacts").select("id, label, detail").order("id", { ascending: true }),
+    ])
+
+    if (settingsRes.data?.footer_text) {
+      setFooterText(settingsRes.data.footer_text)
+    }
+
+    if (settingsRes.data) {
+      setLinkVisibility({
+        home: settingsRes.data.nav_home_enabled ?? true,
+        predictions: settingsRes.data.nav_predictions_enabled ?? true,
+        vip: settingsRes.data.nav_vip_enabled ?? true,
+        leagues: settingsRes.data.nav_leagues_enabled ?? true,
+        contact: settingsRes.data.nav_contact_enabled ?? true,
+      })
+    }
+
+    if (!contactsRes.error && contactsRes.data) {
+      setSupportContacts(contactsRes.data)
+    } else {
+      setSupportContacts([
+        { id: "fallback-1", label: "Email", detail: "support@betprotips.com" },
+        { id: "fallback-2", label: "WhatsApp", detail: "+232 XXX XXX XXX" },
+      ])
+    }
+
+    setLoadingFooter(false)
+  }
+
   return (
-    <footer className="border-t border-gray-800 bg-black">
+    <footer className="border-t border-slate-200 bg-slate-100">
       <div className="max-w-7xl mx-auto px-6 py-16 grid md:grid-cols-2 lg:grid-cols-4 gap-10">
         <div>
           <h2 className="text-2xl font-black text-sky-400">BetPro Tips</h2>
-          <p className="text-gray-400 mt-4 leading-relaxed text-sm">
-            Professional football betting predictions platform providing daily
-            expert tips and VIP betting analysis.
-          </p>
+          <p className="text-slate-600 mt-4 leading-relaxed text-sm">{footerText}</p>
         </div>
 
         <div>
           <h3 className="text-lg font-bold mb-5">Quick Links</h3>
-          <div className="space-y-3 text-gray-400">
-            <Link to="/" className="hover:text-sky-400 transition block">
-              Home
-            </Link>
-            <Link to="/predictions" className="hover:text-sky-400 transition block">
-              Predictions
-            </Link>
-            <Link to="/vip" className="hover:text-sky-400 transition block">
-              VIP Tips
-            </Link>
-            <Link to="/contact" className="hover:text-sky-400 transition block">
-              Contact
-            </Link>
+          <div className="space-y-3 text-slate-600">
+            {linkVisibility.home ? (
+              <Link to="/" className="hover:text-sky-400 transition block">
+                Home
+              </Link>
+            ) : null}
+            {linkVisibility.predictions ? (
+              <Link to="/predictions" className="hover:text-sky-400 transition block">
+                Predictions
+              </Link>
+            ) : null}
+            {linkVisibility.vip ? (
+              <Link to="/vip" className="hover:text-sky-400 transition block">
+                VIP Tips
+              </Link>
+            ) : null}
+            {linkVisibility.leagues ? (
+              <Link to="/leagues" className="hover:text-sky-400 transition block">
+                Leagues
+              </Link>
+            ) : null}
+            {linkVisibility.contact ? (
+              <Link to="/contact" className="hover:text-sky-400 transition block">
+                Contact
+              </Link>
+            ) : null}
           </div>
         </div>
 
         <div>
           <h3 className="text-lg font-bold mb-5">Leagues</h3>
-          <div className="space-y-3 text-gray-400">
+          <div className="space-y-3 text-slate-600">
             <p>Premier League</p>
             <p>La Liga</p>
             <p>Serie A</p>
@@ -681,56 +985,67 @@ function Footer() {
 
         <div>
           <h3 className="text-lg font-bold mb-5">Contact</h3>
-          <div className="space-y-3 text-gray-400">
-            <p>Email: support@betprotips.com</p>
-            <p>WhatsApp: +232 XXX XXX XXX</p>
-            <p>Available 24/7</p>
+          <div className="space-y-3 text-slate-600">
+            {supportContacts.map((contact) => (
+              <p key={contact.id}>{contact.detail}</p>
+            ))}
           </div>
         </div>
       </div>
-      <div className="border-t border-gray-800 py-6 text-center text-gray-500 text-sm">
+      <div className="border-t border-slate-200 py-6 text-center text-slate-500 text-sm">
         © 2026 BetPro Tips. All rights reserved.
       </div>
     </footer>
   )
 }
 
+function AppContent() {
+  const location = useLocation()
+  const hideAdminShell = location.pathname.startsWith("/admin")
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {!hideAdminShell && <Navbar />}
+      <main>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/predictions" element={<PredictionsPage />} />
+          <Route path="/vip" element={<VIPPage />} />
+          <Route path="/leagues" element={<LeaguesPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/forgot" element={<ForgotPassword />} />
+          <Route path="/login" element={<AuthPage />} />
+
+          <Route
+            path="/admin"
+            element={
+              <ProtectedAdminRoute>
+                <AdminLayout />
+              </ProtectedAdminRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="predictions" element={<AdminPredictions />} />
+            <Route path="matches" element={<AdminMatches />} />
+            <Route path="leagues" element={<AdminLeagues />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="messages" element={<AdminMessages />} />
+            <Route path="settings" element={<SiteSettingsAdmin />} />
+            <Route path="vip" element={<VipManagementAdmin />} />
+          </Route>
+
+          <Route path="*" element={<HomePage />} />
+        </Routes>
+      </main>
+      {!hideAdminShell && <Footer />}
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-950 text-white">
-        <Navbar />
-        <main>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/predictions" element={<PredictionsPage />} />
-            <Route path="/vip" element={<VIPPage />} />
-            <Route path="/leagues" element={<LeaguesPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/login" element={<LoginPage />} />
-
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<AdminDashboard />} />
-              <Route path="predictions" element={<AdminPredictions />} />
-              <Route path="matches" element={<AdminMatches />} />
-              <Route path="leagues" element={<AdminLeagues />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="settings" element={<SiteSettingsAdmin />} />
-              <Route path="vip" element={<VipManagementAdmin />} />
-            </Route>
-
-            <Route path="*" element={<HomePage />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+      <AppContent />
     </BrowserRouter>
   )
 }
