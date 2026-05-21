@@ -1,0 +1,1 @@
+export default function PredictionsTable() { return <div>PredictionsTable</div> }

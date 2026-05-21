@@ -5,8 +5,7 @@ import { Plus, RefreshCcw, Shield, Unlock, Loader2, X } from "lucide-react"
 const emptyUserForm = {
   full_name: "",
   email: "",
-  role: "Member",
-  is_vip: false,
+  role: "user",
 }
 
 export default function AdminUsers() {
@@ -27,7 +26,7 @@ export default function AdminUsers() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, role, is_vip, is_active, created_at")
+      .select("id, full_name, email, role, is_active, created_at")
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -47,7 +46,6 @@ export default function AdminUsers() {
         full_name: newUser.full_name,
         email: newUser.email,
         role: newUser.role,
-        is_vip: newUser.is_vip,
         is_active: true,
       },
     ])
@@ -81,15 +79,15 @@ export default function AdminUsers() {
     }
   }
 
-  async function toggleVip(user) {
+  async function toggleRole(user) {
     setActionLoading(true)
-    const { error } = await supabase.from("profiles").update({ is_vip: !user.is_vip }).eq("id", user.id)
+    const { error } = await supabase.from("profiles").update({ role: user.role === "admin" ? "user" : "admin" }).eq("id", user.id)
     setActionLoading(false)
 
     if (error) {
       setNotification({ type: "error", message: error.message })
     } else {
-      setNotification({ type: "success", message: `VIP status updated for ${user.full_name}.` })
+      setNotification({ type: "success", message: `Role updated for ${user.full_name}.` })
       loadUsers()
     }
   }
@@ -117,7 +115,7 @@ export default function AdminUsers() {
       <div className="rounded-3xl border border-slate-200 bg-white p-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-sm">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">User Management</h2>
-          <p className="text-slate-600 mt-2">View registered profiles, trigger password resets, and update VIP access.</p>
+          <p className="text-slate-600 mt-2">View registered profiles, trigger password resets, and update access.</p>
         </div>
         <button
           type="button"
@@ -142,8 +140,8 @@ export default function AdminUsers() {
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">VIP</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Active</th>
+              <th className="px-4 py-3">Joined</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
@@ -161,9 +159,9 @@ export default function AdminUsers() {
                 <tr key={user.id} className="hover:bg-slate-100 transition">
                   <td className="px-4 py-4 text-slate-700">{user.full_name || "Anonymous"}</td>
                   <td className="px-4 py-4 text-slate-700">{user.email || "-"}</td>
-                  <td className="px-4 py-4 text-slate-700">{user.role || "Member"}</td>
-                  <td className="px-4 py-4 text-slate-700">{user.is_vip ? "Yes" : "No"}</td>
-                  <td className={`px-4 py-4 font-semibold ${highlightStatus(user)}`}>{user.is_active === false ? "Inactive" : "Active"}</td>
+                  <td className="px-4 py-4 text-slate-700 capitalize">{user.role}</td>
+                  <td className={`px-4 py-4 font-semibold ${highlightStatus(user)}`}>{user.is_active ? "Yes" : "No"}</td>
+                  <td className="px-4 py-4 text-slate-700">{new Date(user.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-4 space-x-2">
                     <button
                       type="button"
@@ -175,11 +173,11 @@ export default function AdminUsers() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => toggleVip(user)}
+                      onClick={() => toggleRole(user)}
                       disabled={actionLoading}
                       className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-sky-400 hover:text-sky-400 transition"
                     >
-                      <Shield className="h-3.5 w-3.5 inline-block" /> {user.is_vip ? "Revoke VIP" : "Grant VIP"}
+                      <Shield className="h-3.5 w-3.5 inline-block" /> Toggle Role
                     </button>
                     <button
                       type="button"
@@ -237,7 +235,7 @@ export default function AdminUsers() {
                   placeholder="user@example.com"
                 />
               </label>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4">
                 <label className="space-y-2 text-sm text-slate-700">
                   Role
                   <select
@@ -245,19 +243,9 @@ export default function AdminUsers() {
                     onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}
                     className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400"
                   >
-                    <option value="Member">Member</option>
-                    <option value="VIP">VIP</option>
-                    <option value="Admin">Admin</option>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
                   </select>
-                </label>
-                <label className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={newUser.is_vip}
-                    onChange={(event) => setNewUser({ ...newUser, is_vip: event.target.checked })}
-                    className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-500"
-                  />
-                  Grant VIP
                 </label>
               </div>
             </div>

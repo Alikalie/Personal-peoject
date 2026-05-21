@@ -26,7 +26,7 @@ function createBlankContact() {
   }
 }
 
-export default function SiteSettingsAdmin() {
+export default function AdminSettings() {
   const [settings, setSettings] = useState(defaultSettings)
   const [supportContacts, setSupportContacts] = useState([createBlankContact()])
   const [saving, setSaving] = useState(false)
@@ -37,11 +37,8 @@ export default function SiteSettingsAdmin() {
   }, [])
 
   async function loadSettings() {
-    // fetch full settings row to avoid column-mismatch errors if the schema differs
-    const [settingsRes, contactsRes] = await Promise.all([
-      supabase.from("site_settings").select("*").maybeSingle(),
-      supabase.from("contact_messages").select("id, label, detail, icon").order("id", { ascending: true }),
-    ])
+    // fetch full settings row
+    const settingsRes = await supabase.from("site_settings").select("*").maybeSingle()
 
     if (!settingsRes.error && settingsRes.data) {
       const data = settingsRes.data || {}
@@ -51,49 +48,22 @@ export default function SiteSettingsAdmin() {
         homepageHeadline: data.homepage_headline || prev.homepageHeadline,
         vipBanner: data.vip_banner || prev.vipBanner,
         footerText: data.footer_text || prev.footerText,
-        // support both new and legacy field names
         contactHeader: data.contact_header || data.contact_title || prev.contactHeader,
         contactIntro: data.contact_intro || prev.contactIntro,
         contactDescription: data.contact_description || prev.contactDescription,
         navHomeEnabled: data.nav_home_enabled ?? prev.navHomeEnabled,
         navPredictionsEnabled: data.nav_predictions_enabled ?? prev.navPredictionsEnabled,
         navVipEnabled: data.nav_vip_enabled ?? prev.navVipEnabled,
-        navLeaguesEnabled: data.nav_leagues_enabled ?? prev.navLeaguesEnabled,
         navContactEnabled: data.nav_contact_enabled ?? prev.navContactEnabled,
       }))
     } else if (settingsRes.error) {
       setNotification({ type: "error", message: `Failed to load site settings: ${settingsRes.error.message}` })
-    }
-
-    if (!contactsRes.error && contactsRes.data) {
-      setSupportContacts(contactsRes.data.map((item) => ({ ...item, uid: item.id || `contact-${item.id}` })))
-    } else if (contactsRes.error) {
-      setNotification({ type: "error", message: `Support contacts unavailable: ${contactsRes.error.message}` })
     }
   }
 
   function handleChange(event) {
     const { name, value } = event.target
     setSettings((prev) => ({ ...prev, [name]: value }))
-  }
-
-  function updateContact(index, field, value) {
-    setSupportContacts((prev) => prev.map((contact, idx) => (idx === index ? { ...contact, [field]: value } : contact)))
-  }
-
-  function addContact() {
-    setSupportContacts((prev) => [...prev, createBlankContact()])
-  }
-
-  async function deleteContact(contact, index) {
-    if (contact.id) {
-      const { error } = await supabase.from("contact_messages").delete().eq("id", contact.id)
-      if (error) {
-        setNotification({ type: "error", message: error.message })
-        return
-      }
-    }
-    setSupportContacts((prev) => prev.filter((_, idx) => idx !== index))
   }
 
   async function saveSettings() {
@@ -106,18 +76,15 @@ export default function SiteSettingsAdmin() {
       vip_banner: settings.vipBanner,
       footer_text: settings.footerText,
       contact_header: settings.contactHeader,
-      // also write legacy field name if present in older schemas
       contact_title: settings.contactHeader,
       contact_intro: settings.contactIntro,
       contact_description: settings.contactDescription,
       nav_home_enabled: settings.navHomeEnabled,
       nav_predictions_enabled: settings.navPredictionsEnabled,
       nav_vip_enabled: settings.navVipEnabled,
-      nav_leagues_enabled: settings.navLeaguesEnabled,
       nav_contact_enabled: settings.navContactEnabled,
     }
 
-    // upsert without forcing onConflict to support different schema variants
     const { error } = await supabase.from("site_settings").upsert([payload])
     setSaving(false)
 
@@ -125,26 +92,6 @@ export default function SiteSettingsAdmin() {
       setNotification({ type: "error", message: error.message })
     } else {
       setNotification({ type: "success", message: "Site settings saved successfully." })
-    }
-  }
-
-  async function saveContacts() {
-    setSaving(true)
-    setNotification(null)
-    const payload = supportContacts.map(({ id, label, detail, icon }) => ({ id, label, detail, icon }))
-    const { error } = await supabase.from("contact_messages").upsert(payload)
-    setSaving(false)
-
-    if (error) {
-      // provide actionable message when table is missing
-      if (error.message && error.message.includes("Could not find the table")) {
-        setNotification({ type: "error", message: "Contact messages table is missing in the database. Create the `contact_messages` table in Supabase to enable this feature." })
-      } else {
-        setNotification({ type: "error", message: error.message })
-      }
-    } else {
-      setNotification({ type: "success", message: "Support contacts saved successfully." })
-      loadSettings()
     }
   }
 
@@ -297,69 +244,7 @@ export default function SiteSettingsAdmin() {
           >
             Save Settings
           </button>
-          <button
-            type="button"
-            onClick={saveContacts}
-            disabled={saving}
-            className="rounded-2xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-400 transition disabled:opacity-50"
-          >
-            Save Support Contacts
-          </button>
-          <button
-            type="button"
-            onClick={addContact}
-            className="rounded-2xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-400 transition"
-          >
-            Add support contact
-          </button>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        {supportContacts.map((contact, index) => (
-          <div key={contact.uid} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
-              <div className="grid gap-4 md:grid-cols-3">
-                <label className="space-y-2 text-sm text-slate-700">
-                  Label
-                  <input
-                    value={contact.label}
-                    onChange={(event) => updateContact(index, "label", event.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400"
-                    placeholder="Email, WhatsApp, Telegram"
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-slate-700">
-                  Detail
-                  <input
-                    value={contact.detail}
-                    onChange={(event) => updateContact(index, "detail", event.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400"
-                    placeholder="support@betprotips.com"
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-slate-700">
-                  Icon
-                  <input
-                    value={contact.icon}
-                    onChange={(event) => updateContact(index, "icon", event.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400"
-                    placeholder="📞"
-                  />
-                </label>
-              </div>
-              <div className="flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={() => deleteContact(contact, index)}
-                  className="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-100 transition"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   )

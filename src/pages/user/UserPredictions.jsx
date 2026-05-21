@@ -1,0 +1,1 @@
+export default function UserPredictions() { return <div>UserPredictions</div> }

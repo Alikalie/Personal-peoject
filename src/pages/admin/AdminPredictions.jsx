@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { supabase } from "../../lib/supabase"
+import { getPredictions, createPrediction, updatePrediction, deletePrediction } from "../../services/predictionsService"
+import { getMatches } from "../../services/matchesService"
 import { Plus, Edit3, Trash2, Loader2, X } from "lucide-react"
 
 const initialForm = {
@@ -35,27 +36,20 @@ export default function AdminPredictions() {
     setLoading(true)
     setNotification(null)
 
-    const [predRes, matchRes] = await Promise.all([
-      supabase
-        .from("predictions")
-        .select("id, prediction, current_odds, result, is_vip, match_id, matches(id, home_team, away_team, match_date, leagues(name))")
-        .order("id", { ascending: false }),
-      supabase
-        .from("matches")
-        .select("id, home_team, away_team, match_date, leagues(name)")
-        .order("match_date", { ascending: true }),
-    ])
-
-    if (predRes.error || matchRes.error) {
+    try {
+      const [predData, matchData] = await Promise.all([
+        getPredictions(),
+        getMatches(),
+      ])
+      setPredictions(predData || [])
+      setMatches(matchData || [])
+    } catch (err) {
       setNotification({
         type: "error",
-        message: predRes.error?.message || matchRes.error?.message || "Failed to load prediction data.",
+        message: err.message || "Failed to load data.",
       })
       setPredictions([])
       setMatches([])
-    } else {
-      setPredictions(predRes.data || [])
-      setMatches(matchRes.data || [])
     }
 
     setLoading(false)
@@ -98,39 +92,36 @@ export default function AdminPredictions() {
       is_vip: form.is_vip,
     }
 
-    const response = editing
-      ? await supabase.from("predictions").update(payload).eq("id", editing.id)
-      : await supabase.from("predictions").insert([payload])
-
-    setSaving(false)
-
-    if (response.error) {
-      setNotification({ type: "error", message: response.error.message })
-      return
+    try {
+      editing
+        ? await updatePrediction(editing.id, payload)
+        : await createPrediction(payload)
+      
+      setNotification({ type: "success", message: editing ? "Prediction updated successfully." : "Prediction created successfully." })
+      setModalOpen(false)
+      loadData()
+    } catch (err) {
+      setNotification({ type: "error", message: err.message || "Failed to save prediction" })
+    } finally {
+      setSaving(false)
     }
-
-    setNotification({ type: "success", message: editing ? "Prediction updated successfully." : "Prediction created successfully." })
-    setModalOpen(false)
-    loadData()
   }
 
   async function handleDelete(prediction) {
     const confirmed = window.confirm("Delete this prediction permanently?")
     if (!confirmed) return
 
-    const { error } = await supabase.from("predictions").delete().eq("id", prediction.id)
-    if (error) {
-      setNotification({ type: "error", message: error.message })
-      return
+    try {
+      await deletePrediction(prediction.id)
+      setNotification({ type: "success", message: "Prediction removed." })
+      loadData()
+    } catch (err) {
+      setNotification({ type: "error", message: err.message || "Failed to delete prediction" })
     }
-
-    setNotification({ type: "success", message: "Prediction removed." })
-    loadData()
   }
 
   const matchOptions = matches.map((match) => {
-    const league = match.leagues?.name || match.league || "League"
-    const text = `${match.home_team} vs ${match.away_team} — ${league} (${new Date(match.match_date).toLocaleDateString()})`
+    const text = `${match.home_team} vs ${match.away_team} (${new Date(match.match_date).toLocaleDateString()})`
     return (
       <option key={match.id} value={match.id}>
         {text}
@@ -141,7 +132,7 @@ export default function AdminPredictions() {
   function currentMatchLabel() {
     const selected = matches.find((match) => match.id === Number(form.match_id))
     if (!selected) return "No match selected"
-    return `${selected.home_team} vs ${selected.away_team} — ${selected.leagues?.name || selected.league || "League"}`
+    return `${selected.home_team} vs ${selected.away_team}`
   }
 
   return (
@@ -204,7 +195,7 @@ export default function AdminPredictions() {
                       {prediction.is_vip ? "VIP" : "Free"}
                     </span>
                   </td>
-                  <td className="px-4 py-4 space-x-2">
+                  <td className="px-4 py-4 space-x-2 flex">
                     <button
                       type="button"
                       onClick={() => openModal(prediction)}

@@ -65,7 +65,7 @@ export default function AdminDashboard() {
         supabase
           .from("predictions")
           .select(
-            `id,prediction,current_odds,result,is_vip,matches(home_team,away_team,match_date,leagues(name))`
+            `id,prediction,current_odds,result,is_vip,matches(*)`
           )
           .order("id", { ascending: false })
           .limit(6),

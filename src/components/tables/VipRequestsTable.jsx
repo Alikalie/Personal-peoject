@@ -1,0 +1,1 @@
+export default function VipRequestsTable() { return <div>VipRequestsTable</div> }

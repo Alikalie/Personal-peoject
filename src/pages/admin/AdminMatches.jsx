@@ -3,7 +3,6 @@ import { supabase } from "../../lib/supabase"
 import { Plus, Edit3, Trash2, Loader2, X } from "lucide-react"
 
 const blankMatch = {
-  league_id: "",
   home_team: "",
   away_team: "",
   match_date: "",
@@ -12,7 +11,6 @@ const blankMatch = {
 
 export default function AdminMatches() {
   const [matches, setMatches] = useState([])
-  const [leagues, setLeagues] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState(blankMatch)
@@ -28,26 +26,16 @@ export default function AdminMatches() {
     setLoading(true)
     setNotification(null)
 
-    const [matchesRes, leaguesRes] = await Promise.all([
-      supabase
-        .from("matches")
-        .select("id, league_id, home_team, away_team, match_date, status, leagues(name)")
-        .order("match_date", { ascending: true }),
-      supabase.from("leagues").select("id, name").order("name", { ascending: true }),
-    ])
+    const { data, error } = await supabase
+      .from("matches")
+      .select("*")
+      .order("match_date", { ascending: true })
 
-    if (matchesRes.error) {
-      setNotification({ type: "error", message: matchesRes.error.message })
+    if (error) {
+      setNotification({ type: "error", message: error.message })
       setMatches([])
     } else {
-      setMatches(matchesRes.data || [])
-    }
-
-    if (leaguesRes.error) {
-      setNotification((prev) => prev || { type: "error", message: leaguesRes.error.message })
-      setLeagues([])
-    } else {
-      setLeagues(leaguesRes.data || [])
+      setMatches(data || [])
     }
 
     setLoading(false)
@@ -57,7 +45,6 @@ export default function AdminMatches() {
     if (match) {
       setEditing(match)
       setForm({
-        league_id: match.league_id,
         home_team: match.home_team,
         away_team: match.away_team,
         match_date: match.match_date?.split("T")[0] || "",
@@ -67,8 +54,8 @@ export default function AdminMatches() {
       setEditing(null)
       setForm(blankMatch)
     }
-    setModalOpen(true)
     setNotification(null)
+    setModalOpen(true)
   }
 
   function closeModal() {
@@ -77,18 +64,16 @@ export default function AdminMatches() {
   }
 
   async function saveMatch() {
-    if (!form.league_id || !form.home_team || !form.away_team || !form.match_date) {
+    if (!form.home_team || !form.away_team || !form.match_date) {
       setNotification({ type: "error", message: "All fields are required." })
       return
     }
 
     setSaving(true)
     const payload = {
-      league_id: form.league_id ? parseInt(form.league_id, 10) : null,
       home_team: form.home_team,
       away_team: form.away_team,
       match_date: form.match_date,
-      status: form.status,
     }
     let response
     try {
@@ -148,7 +133,6 @@ export default function AdminMatches() {
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="text-slate-500 uppercase tracking-[0.2em] text-xs">
-              <th className="px-4 py-3">League</th>
               <th className="px-4 py-3">Home</th>
               <th className="px-4 py-3">Away</th>
               <th className="px-4 py-3">Date</th>
@@ -159,7 +143,7 @@ export default function AdminMatches() {
           <tbody className="divide-y divide-slate-200">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-600">
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-600">
                   <div className="inline-flex items-center gap-2 font-semibold">
                     <Loader2 className="h-4 w-4 animate-spin" /> Loading matches...
                   </div>
@@ -168,7 +152,6 @@ export default function AdminMatches() {
             ) : matches.length > 0 ? (
               matches.map((match) => (
                 <tr key={match.id} className="hover:bg-slate-100 transition">
-                  <td className="px-4 py-4 text-slate-700">{match.leagues?.name || "Unknown"}</td>
                   <td className="px-4 py-4 text-slate-700">{match.home_team}</td>
                   <td className="px-4 py-4 text-slate-700">{match.away_team}</td>
                   <td className="px-4 py-4 text-slate-700">{match.match_date?.split("T")[0] || "TBD"}</td>
@@ -214,23 +197,14 @@ export default function AdminMatches() {
                 <X className="h-4 w-4" />
               </button>
             </div>
+            
+            {notification ? (
+              <div className={`mt-4 rounded-3xl border p-4 text-sm ${notification.type === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                {notification.message}
+              </div>
+            ) : null}
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <label className="space-y-2 text-sm text-slate-700">
-                League
-                <select
-                  value={form.league_id}
-                  onChange={(event) => setForm({ ...form, league_id: event.target.value })}
-                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
-                >
-                  <option value="">Select league</option>
-                  {leagues.map((league) => (
-                    <option key={league.id} value={league.id}>
-                      {league.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <label className="space-y-2 text-sm text-slate-700">
                 Home team
                 <input

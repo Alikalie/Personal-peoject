@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { supabase } from "../lib/supabase"
+import { supabase } from "../../lib/supabase"
 import { useNavigate } from "react-router-dom"
 
 const countryOptions = [
@@ -257,8 +257,9 @@ export default function AuthPage() {
           await supabase.from("profiles").insert({
             id: data.user.id,
             full_name: name,
-            phone: contact,
-            country,
+            contact_number: contact,
+            country: country,
+            email: email,
             role: "user",
           })
         }
@@ -298,7 +299,7 @@ export default function AuthPage() {
             <div className="bg-slate-100 backdrop-blur rounded-2xl p-5 border border-slate-200/70">
               <h3 className="font-black text-xl text-slate-900">Daily Winning Tips</h3>
               <p className="mt-2 text-slate-600">
-                Accurate predictions from top football leagues worldwide.
+                Accurate predictions from top football matches worldwide.
               </p>
             </div>
 

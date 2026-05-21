@@ -1,85 +1,123 @@
+
 # Betting Platform
 
-A React + Vite sports betting platform with public pages and an admin dashboard backed by Supabase.
+A lightweight React + Vite betting platform with a public-facing site and an admin dashboard. Data persistence and authentication are handled via Supabase.
 
-## Features
+## Table of contents
 
-- Public pages: home, predictions, VIP, leagues, contact
-- Admin pages: dashboard, predictions, matches, leagues, users, messages, settings, VIP management
-- Supabase CRUD for matches, leagues, VIP plans, site settings, and contact messages
-- Admin-controlled navigation links: toggle Home, Predictions, VIP, Leagues, and Contact visibility
-- Contact form persistence and admin message inbox
-- Footer and public site navigation follow admin settings
+- Quickstart
+- Environment
+- Database / Supabase
+- Features
+- Project structure
+- Scripts
+- Deployment
+- Contributing
+- License
 
-## Setup
+## Quickstart
 
-1. Install dependencies:
+Prerequisites:
+- Node.js 18+ (or compatible)
+- npm or yarn
+- A Supabase project (for database and auth)
+
+1. Install dependencies
 
 ```bash
 npm install
 ```
 
-2. Configure Supabase:
+2. Create environment variables
 
-- Create a `.env` file or use Vite env variables
-- Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+Create a file named `.env` (or use your preferred Vite env mechanism) at the project root and set at minimum:
 
-3. Run the app:
+```
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+3. Run development server
 
 ```bash
 npm run dev
 ```
 
-4. Build for production:
+4. Build for production
 
 ```bash
 npm run build
+npm run preview
 ```
 
-## Required Supabase Tables
+## Environment variables
 
-The app expects the following tables:
+- `VITE_SUPABASE_URL` — your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` — the anon/public key for Supabase
 
-- `site_settings`
-  - `site_title`
-  - `homepage_headline`
-  - `vip_banner`
-  - `footer_text`
-  - `contact_header`
-  - `contact_intro`
-  - `contact_description`
-  - `nav_home_enabled`
-  - `nav_predictions_enabled`
-  - `nav_vip_enabled`
-  - `nav_leagues_enabled`
-  - `nav_contact_enabled`
-- `contact_messages`
-  - `id`, `label`, `detail`, `icon`
-- `contact_messages`
-  - `id`, `name`, `email`, `subject`, `message`, `created_at`
-- `leagues`
-  - `id`, `name`, `country`, `status`, `icon_url`
-- `matches`
-  - `id`, `league_id`, `home_team`, `away_team`, `match_date`, `status`
-- `vip_plans`
-  - `id`, `name`, `price`, `status`, `description`
+Other env vars may be read by utilities or local scripts; check `src/lib/supabase.js` and the `sql/` scripts for additional requirements.
 
-## Admin Settings
+## Database / Supabase
 
-Visit `/admin/settings` to modify site content, support contacts, footer copy, and navigation visibility. When a nav item is disabled, it is hidden from users in the header and footer.
+The project uses Supabase for storing site settings, matches, predictions, VIP plans, users, and messages. SQL helper scripts are provided under the `sql/` directory to create the required schema and initial admin user.
 
-## Notes
+- See `sql/001_create_schema.sql`, `sql/002_setup_admin_user.sql`, `sql/003_setup_admin_profile.sql`, and `sql/004_auto_super_admin.sql` for schema and bootstrap steps.
+- See [DATABASE_SETUP.md](DATABASE_SETUP.md) and [ADMIN_SETUP.md](ADMIN_SETUP.md) for step-by-step instructions.
 
-- The contact page now uses `contact_header` to match the admin settings schema.
-- The site falls back to default support contact entries if `contact_messages` is missing.
-- Admin match and VIP pages now persist data to Supabase.
+Required tables (examples): `site_settings`, `contact_messages`, `leagues`, `matches`, `vip_plans`, plus the standard Supabase `auth` tables.
 
-## Build
+## Features
 
-```bash
-npm run build
-```
+- Public site: Home, Predictions, VIP, Leagues, Contact, Terms & Privacy
+- Admin dashboard: manage matches, predictions, users, messages, VIP plans, and site settings
+- Supabase-backed CRUD operations for matches, leagues, VIP plans, messages, and settings
+- Admin-controlled navigation and content (toggle pages, update footer/support contacts)
+
+## Project structure (high level)
+
+- `src/` — application source
+  - `pages/` — route pages (public, auth, admin, user)
+  - `components/` — UI components, forms, layout pieces
+  - `services/` — API/service wrappers (Supabase calls)
+  - `lib/supabase.js` — Supabase client initialization
+- `public/` — static assets
+- `sql/` — database schema and setup scripts
+- `index.html`, `vite.config.js` — Vite entry and config
+
+## Scripts
+
+From `package.json`:
+
+- `npm run dev` — start Vite dev server
+- `npm run build` — build production assets
+- `npm run preview` — preview production build locally
+- `npm run lint` — run ESLint
+
+## Deployment
+
+This app builds into static assets via Vite and can be deployed to any static host (Netlify, Vercel, Cloudflare Pages) with serverless functions or to a Node host if you need server middleware. Ensure your Supabase keys are stored securely in the host's environment.
+
+## Troubleshooting
+
+- If you see authentication or 401 errors, verify `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are correct and not expired.
+- If tables are missing, run the SQL scripts under `sql/` to create schema and seed an admin user.
+
+## Contributing
+
+If you'd like to contribute:
+
+1. Fork the repo and create a feature branch
+2. Open a pull request with a clear description of changes
+
+Please run `npm run lint` before submitting changes.
+
+## Useful files
+
+- `src/lib/supabase.js` — Supabase client
+- `sql/` — DB schema and setup scripts
+- `ADMIN_SETUP.md`, `DATABASE_SETUP.md` — admin and DB setup instructions
 
 ## License
 
 MIT
+

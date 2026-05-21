@@ -5,11 +5,10 @@ import { Plus, Edit3, Trash2, Loader2, X } from "lucide-react"
 const blankPlan = {
   name: "",
   price: "",
-  status: "Active",
   description: "",
 }
 
-export default function VipManagementAdmin() {
+export default function AdminVipPlans() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -28,7 +27,7 @@ export default function VipManagementAdmin() {
 
     const { data, error } = await supabase
       .from("vip_plans")
-      .select("id, name, price, status, description")
+      .select("id, name, price, description")
       .order("id", { ascending: false })
 
     if (error) {
@@ -44,7 +43,7 @@ export default function VipManagementAdmin() {
   function openModal(plan = null) {
     if (plan) {
       setEditing(plan)
-      setForm({ name: plan.name, price: plan.price, status: plan.status || "Active", description: plan.description || "" })
+      setForm({ name: plan.name, price: plan.price, description: plan.description || "" })
     } else {
       setEditing(null)
       setForm(blankPlan)
@@ -68,7 +67,6 @@ export default function VipManagementAdmin() {
     const payload = {
       name: form.name,
       price: form.price,
-      status: form.status,
       description: form.description,
     }
 
@@ -130,7 +128,7 @@ export default function VipManagementAdmin() {
             <tr className="text-slate-500 uppercase tracking-[0.2em] text-xs">
               <th className="px-4 py-3">Plan</th>
               <th className="px-4 py-3">Price</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Description</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
@@ -148,7 +146,7 @@ export default function VipManagementAdmin() {
                 <tr key={plan.id} className="hover:bg-slate-100 transition">
                   <td className="px-4 py-4 text-slate-700">{plan.name}</td>
                   <td className="px-4 py-4 text-sky-400">{plan.price}</td>
-                  <td className="px-4 py-4 text-slate-700">{plan.status}</td>
+                  <td className="px-4 py-4 text-slate-700">{plan.description}</td>
                   <td className="px-4 py-4 space-x-2">
                     <button
                       type="button"
@@ -210,18 +208,6 @@ export default function VipManagementAdmin() {
                   className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
                   placeholder="$29"
                 />
-              </label>
-              <label className="space-y-2 text-sm text-slate-700">
-                Status
-                <select
-                  value={form.status}
-                  onChange={(event) => setForm({ ...form, status: event.target.value })}
-                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-sky-400"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Paused">Paused</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
               </label>
               <label className="space-y-2 text-sm text-slate-700 md:col-span-2">
                 Description

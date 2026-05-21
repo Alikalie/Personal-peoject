@@ -1,0 +1,1 @@
+export default function VipPlanCard() { return <div>VipPlanCard</div> }

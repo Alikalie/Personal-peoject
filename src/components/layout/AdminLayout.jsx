@@ -7,7 +7,6 @@ const adminLinks = [
   { name: "Dashboard", path: "", icon: LayoutDashboard },
   { name: "Predictions", path: "predictions", icon: Star },
   { name: "Matches", path: "matches", icon: CalendarDays },
-  { name: "Leagues", path: "leagues", icon: ShieldAlert },
   { name: "Users", path: "users", icon: Users2 },
   { name: "VIP", path: "vip", icon: Activity },
   { name: "Settings", path: "settings", icon: Settings2 },
