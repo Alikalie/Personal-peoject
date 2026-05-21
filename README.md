@@ -73,6 +73,20 @@ Required tables (examples): `site_settings`, `contact_messages`, `leagues`, `mat
 - Supabase-backed CRUD operations for matches, leagues, VIP plans, messages, and settings
 - Admin-controlled navigation and content (toggle pages, update footer/support contacts)
 
+## Supported data
+
+This project exposes and persists the following primary data types:
+
+- MATCHES
+  - fields: `country`, `home_team`, `away_team`
+
+- DAILY PREDICTIONS
+  - fields: `match_1`, `match_2`, `prediction`, `odds`
+
+- PAST / ARCHIVED PREDICTIONS
+  - archived entries include: `results`, `odds`, `history`
+  - note: archived prediction records are stored without a timestamp by design
+
 ## Project structure (high level)
 
 - `src/` — application source

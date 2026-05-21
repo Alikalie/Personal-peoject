@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { supabase } from "../../lib/supabase"
 import { useNavigate } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 
 const countryOptions = [
   { name: "Afghanistan", dial: "+93" },
@@ -204,8 +205,18 @@ const countryOptions = [
 
 export default function AuthPage() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [isLogin, setIsLogin] = useState(true)
+  const [adminOnly, setAdminOnly] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get("admin") === "1") {
+      setAdminOnly(true)
+      setIsLogin(true)
+    }
+  }, [location.search])
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -227,7 +238,19 @@ export default function AuthPage() {
     setMessage("")
 
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({
+      // check site setting for login availability
+      try {
+        const { data: settings } = await supabase.from("site_settings").select("allow_login").maybeSingle()
+        if (!settings?.allow_login) {
+          alert("Login is currently disabled.")
+          setLoading(false)
+          return
+        }
+      } catch (err) {
+        // if settings check fails, continue to attempt login
+        console.warn('Failed to check allow_login', err)
+      }
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -235,9 +258,23 @@ export default function AuthPage() {
       if (error) {
         setMessage(error.message)
       } else {
-        navigate("/admin")
+        const user = signInData?.user || (await supabase.auth.getUser()).data.user
+
+        // No admin restriction: allow any signed-in user to go to admin
+        navigate("/admin/dashboard")
       }
     } else {
+      // check site setting for registration availability
+      try {
+        const { data: settings } = await supabase.from("site_settings").select("allow_registration").maybeSingle()
+        if (!settings?.allow_registration) {
+          alert("Registration is currently disabled.")
+          setLoading(false)
+          return
+        }
+      } catch (err) {
+        console.warn('Failed to check allow_registration', err)
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -270,22 +307,25 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center relative overflow-hidden px-6 py-10">
+    <div className={`min-h-screen text-slate-900 flex items-center justify-center relative overflow-hidden px-6 py-10 ${adminOnly ? 'bg-[#077B8A]' : 'bg-slate-50'}`}>
       {/* BACKGROUND */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-sky-500/20 blur-3xl rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-sky-400/10 blur-3xl rounded-full"></div>
-      </div>
+      {!adminOnly && (
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-sky-500/20 blur-3xl rounded-full"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-sky-400/10 blur-3xl rounded-full"></div>
+        </div>
+      )}
 
       {/* CARD */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 w-full max-w-3xl bg-white border border-slate-200 rounded-[28px] overflow-hidden shadow-2xl grid lg:grid-cols-2"
+        className={`relative z-10 w-full ${adminOnly ? "max-w-md" : "max-w-3xl"} bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-lg ${adminOnly ? 'px-6 py-10' : ''} grid lg:grid-cols-2`}
       >
         {/* LEFT SIDE */}
-        <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-sky-500 to-sky-700 text-black">
+        {!adminOnly && (
+          <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-sky-500 to-sky-700 text-black">
           <div>
             <h1 className="text-5xl font-black leading-tight">BetPro Tips</h1>
 
@@ -310,59 +350,78 @@ export default function AuthPage() {
               </p>
             </div>
           </div>
-        </div>
+          </div>
+        )}
 
         {/* RIGHT SIDE */}
-        <div className={`p-8 lg:p-12 flex flex-col justify-center transition ${isLogin ? "bg-white border-l border-slate-200" : "bg-slate-50 border-l border-slate-200"}`}>
-          <div className="mb-10 text-center lg:text-left">
-            <h2 className={`text-4xl font-black ${isLogin ? "text-slate-900" : "text-emerald-700"}`}>
-              {isLogin ? "Welcome Back" : "Create Account"}
-            </h2>
+        <div className={`flex flex-col justify-center transition ${isLogin ? "bg-white border-l border-slate-200" : "bg-slate-50 border-l border-slate-200"} ${adminOnly ? 'p-6' : 'p-8 lg:p-12'}`}>
+          <div className="mb-8 text-center lg:text-left">
+            <div className="flex items-center gap-3 mb-4 justify-center lg:justify-start">
+              <div className="h-10 w-10 rounded-lg bg-sky-500 flex items-center justify-center text-black font-black">BP</div>
+              <div>
+                <div className="text-lg font-extrabold">BetPro Tips</div>
+                <div className="text-sm text-slate-500">Professional match predictions</div>
+              </div>
+            </div>
 
-            <p className="text-slate-600 mt-3 text-lg">
-              {isLogin
-                ? "Login to continue to your dashboard"
-                : "Register to access football predictions"}
-            </p>
+            {/* Admin-only simplified header */}
+            {adminOnly ? (
+              <>
+                <h2 className="text-3xl font-extrabold text-slate-900">Login</h2>
+                <p className="text-slate-600 mt-2 text-base">Sign in to continue</p>
+              </>
+            ) : (
+              <>
+                <h2 className={`text-3xl font-extrabold ${isLogin ? "text-slate-900" : "text-emerald-700"}`}>
+                  {isLogin ? "Welcome Back" : "Create Account"}
+                </h2>
+
+                <p className="text-slate-600 mt-2 text-base">
+                  {isLogin ? "Sign in to access the admin dashboard" : "Register to access football predictions"}
+                </p>
+              </>
+            )}
           </div>
 
           {/* TOGGLE */}
-          <div className="flex bg-slate-100 rounded-2xl p-2 mb-8 border border-slate-200">
-            <button
-              type="button"
-              onClick={() => setIsLogin(true)}
-              className={`flex-1 py-3 rounded-xl font-bold transition ${
-                isLogin ? "bg-sky-500 text-black" : "text-slate-600"
-              }`}
-            >
-              Login
-            </button>
+          {!adminOnly && (
+            <div className="flex bg-slate-100 rounded-2xl p-2 mb-8 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setIsLogin(true)}
+                className={`flex-1 py-3 rounded-xl font-bold transition ${
+                  isLogin ? "bg-sky-500 text-black" : "text-slate-600"
+                }`}
+              >
+                Login
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setIsLogin(false)}
-              className={`flex-1 py-3 rounded-xl font-bold transition ${
-                !isLogin ? "bg-sky-500 text-black" : "text-slate-600"
-              }`}
-            >
-              Register
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setIsLogin(false)}
+                className={`flex-1 py-3 rounded-xl font-bold transition ${
+                  !isLogin ? "bg-sky-500 text-black" : "text-slate-600"
+                }`}
+              >
+                Register
+              </button>
+            </div>
+          )}
 
           {/* FORM */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {!isLogin && (
+          <form onSubmit={handleSubmit} className={`space-y-5 ${adminOnly ? 'max-w-md mx-auto' : ''}`}>
+            {!isLogin && !adminOnly && (
               <>
                 <div>
                   <label className="block mb-2 text-sm text-slate-600">Full Name</label>
-                  <input
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full p-3 rounded-2xl bg-slate-50 border border-slate-200 focus:border-sky-500 outline-none transition"
-                    required
-                  />
+                    <input
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 focus:border-sky-400 outline-none shadow-sm transition text-sm"
+                      required
+                    />
                 </div>
 
                 <div>
@@ -383,7 +442,7 @@ export default function AuthPage() {
                     }
                     value={contact}
                     onChange={(e) => setContact(e.target.value)}
-                    className="w-full p-3 rounded-2xl bg-slate-50 border border-slate-200 focus:border-sky-500 outline-none transition"
+                    className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 focus:border-sky-400 outline-none shadow-sm transition text-sm"
                     required
                   />
                 </div>
@@ -393,7 +452,7 @@ export default function AuthPage() {
                   <select
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
-                    className="w-full p-3 rounded-2xl bg-slate-50 border border-slate-200 focus:border-sky-500 outline-none transition"
+                    className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 focus:border-sky-400 outline-none shadow-sm transition text-sm"
                     required
                   >
                     <option value="">Select country</option>
@@ -408,39 +467,39 @@ export default function AuthPage() {
             )} 
 
             <div>
-              <label className="block mb-2 text-sm text-slate-600">Email Address</label>
+              <label className="block mb-2 text-sm font-semibold text-slate-700">Email:</label>
               <input
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Enter email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-sky-500 outline-none transition"
+                className={`w-full ${adminOnly ? 'h-14 px-6' : 'px-4 py-3'} rounded-lg bg-white border border-slate-200 focus:border-sky-400 outline-none shadow-sm transition text-sm`}
                 required
               />
             </div>
 
             <div>
-              <label className="block mb-2 text-sm text-slate-600">Password</label>
+              <label className="block mb-2 text-sm font-semibold text-slate-700">Password:</label>
               <input
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-sky-500 outline-none transition"
+                className={`w-full ${adminOnly ? 'h-14 px-6' : 'px-4 py-3'} rounded-lg bg-white border border-slate-200 focus:border-sky-400 outline-none shadow-sm transition text-sm`}
                 required
               />
             </div>
 
             {isLogin && (
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <label className="inline-flex items-center gap-2 text-slate-700">
+              <div className="flex items-center justify-between text-sm text-slate-600">
+                <label className="inline-flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-500"
+                    className="h-4 w-4 rounded border-slate-300 text-sky-500"
                   />
-                  Remember me
+                  Show Password
                 </label>
 
                 <button
@@ -448,7 +507,7 @@ export default function AuthPage() {
                   onClick={() => navigate("/forgot")}
                   className="text-sky-500 font-semibold hover:text-sky-400"
                 >
-                  Forgot Password?
+                  Forgot Username / Password?
                 </button>
               </div>
             )}
@@ -462,9 +521,9 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 rounded-2xl bg-sky-500 hover:bg-sky-400 text-black font-black text-lg transition disabled:opacity-50"
+              className={`w-full ${adminOnly ? 'py-4' : 'py-3'} rounded-xl bg-[#077B8A] text-white font-bold text-lg hover:opacity-95 transition shadow-md disabled:opacity-50`}
             >
-              {loading ? "Please wait..." : isLogin ? "Login" : "Create Account"}
+              {loading ? "Please wait..." : isLogin ? "SIGN IN" : "Create account"}
             </button>
           </form>
 

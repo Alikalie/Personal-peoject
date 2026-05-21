@@ -34,10 +34,26 @@ function ContactPage() {
       setContactError(settingsError.message)
     }
 
-    setSupportContacts([
-      { id: "fallback-1", label: "Support Email", detail: "support@betprotips.com", icon: "📧" },
-      { id: "fallback-2", label: "WhatsApp", detail: "+232 XXX XXX XXX", icon: "📱" },
-    ])
+    try {
+      const { data: contactsData, error: contactsError } = await supabase.from('contact_messages').select('*').order('id', { ascending: true })
+      if (!contactsError && contactsData && contactsData.length) {
+        setSupportContacts(
+          contactsData.map((c) => ({ id: `id-${c.id}`, label: c.label || (c.detail?.includes('@') ? 'Email' : 'Contact'), detail: c.detail || '', icon: c.icon || '📧' }))
+        )
+      } else {
+        // fallback to the two admin emails provided
+        setSupportContacts([
+          { id: 'fallback-1', label: 'Support Email', detail: 'alikaliefofanah0@gmail.com', icon: '📧' },
+          { id: 'fallback-2', label: 'Support Email', detail: 'alikaliepapaykinniefofanah@gmail.com', icon: '📧' },
+        ])
+      }
+    } catch (err) {
+      console.warn('Failed to load support contacts', err)
+      setSupportContacts([
+        { id: 'fallback-1', label: 'Support Email', detail: 'alikaliefofanah0@gmail.com', icon: '📧' },
+        { id: 'fallback-2', label: 'Support Email', detail: 'alikaliepapaykinniefofanah@gmail.com', icon: '📧' },
+      ])
+    }
     setLoadingContact(false)
   }
 
@@ -97,7 +113,11 @@ function ContactPage() {
                       </span>
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{contact.label}</p>
-                        <p className="text-sm text-slate-600">{contact.detail}</p>
+                        {contact.detail?.includes('@') ? (
+                          <a className="text-sm text-slate-600 hover:text-sky-500" href={`mailto:${contact.detail}`}>{contact.detail}</a>
+                        ) : (
+                          <p className="text-sm text-slate-600">{contact.detail}</p>
+                        )}
                       </div>
                     </div>
                   </div>

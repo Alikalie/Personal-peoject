@@ -14,6 +14,8 @@ const defaultSettings = {
   navVipEnabled: true,
   navLeaguesEnabled: true,
   navContactEnabled: true,
+  allowLogin: false,
+  allowRegistration: false,
 }
 
 function createBlankContact() {
@@ -39,6 +41,7 @@ export default function AdminSettings() {
   async function loadSettings() {
     // fetch full settings row
     const settingsRes = await supabase.from("site_settings").select("*").maybeSingle()
+    const { data: contactsData, error: contactsError } = await supabase.from("contact_messages").select("*").order('id', { ascending: true })
 
     if (!settingsRes.error && settingsRes.data) {
       const data = settingsRes.data || {}
@@ -55,9 +58,18 @@ export default function AdminSettings() {
         navPredictionsEnabled: data.nav_predictions_enabled ?? prev.navPredictionsEnabled,
         navVipEnabled: data.nav_vip_enabled ?? prev.navVipEnabled,
         navContactEnabled: data.nav_contact_enabled ?? prev.navContactEnabled,
+        allowLogin: data.allow_login ?? prev.allowLogin,
+        allowRegistration: data.allow_registration ?? prev.allowRegistration,
       }))
     } else if (settingsRes.error) {
       setNotification({ type: "error", message: `Failed to load site settings: ${settingsRes.error.message}` })
+    }
+
+    if (!contactsError && contactsData) {
+      // map into UI-friendly objects
+      setSupportContacts(
+        contactsData.map((c) => ({ uid: `id-${c.id}`, label: c.label || "", detail: c.detail || "", icon: c.icon || "", id: c.id }))
+      )
     }
   }
 
@@ -83,9 +95,28 @@ export default function AdminSettings() {
       nav_predictions_enabled: settings.navPredictionsEnabled,
       nav_vip_enabled: settings.navVipEnabled,
       nav_contact_enabled: settings.navContactEnabled,
+      allow_login: settings.allowLogin,
+      allow_registration: settings.allowRegistration,
     }
 
     const { error } = await supabase.from("site_settings").upsert([payload])
+    // save contact messages: simple approach - delete all and insert the current list
+    if (!error) {
+      const clean = supportContacts
+        .filter((c) => c.label || c.detail)
+        .map((c) => ({ label: c.label, detail: c.detail, icon: c.icon }))
+
+      const { error: delErr } = await supabase.from('contact_messages').delete().gt('id', 0)
+      if (delErr) {
+        console.warn('Failed to clear contact_messages', delErr)
+      }
+
+      if (clean.length) {
+        const { error: insErr } = await supabase.from('contact_messages').insert(clean)
+        if (insErr) console.warn('Failed to insert contact_messages', insErr)
+      }
+    }
+
     setSaving(false)
 
     if (error) {
@@ -230,6 +261,30 @@ export default function AdminSettings() {
                   className="h-4 w-4 rounded border-slate-300 text-sky-500"
                 />
                 Show Contact link
+              </label>
+            </div>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-4">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Auth Controls</p>
+            <div className="space-y-3 text-slate-700">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={settings.allowLogin}
+                  onChange={(event) => setSettings((prev) => ({ ...prev, allowLogin: event.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-sky-500"
+                />
+                Allow Login
+              </label>
+
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={settings.allowRegistration}
+                  onChange={(event) => setSettings((prev) => ({ ...prev, allowRegistration: event.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-sky-500"
+                />
+                Allow Registration
               </label>
             </div>
           </div>

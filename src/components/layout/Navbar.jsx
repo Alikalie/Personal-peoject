@@ -9,6 +9,7 @@ export default function Navbar() {
     navPredictionsEnabled: true,
     navVipEnabled: true,
     navContactEnabled: true,
+    allowLogin: false,
   })
   const [loadingSettings, setLoadingSettings] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -30,6 +31,7 @@ export default function Navbar() {
           navPredictionsEnabled: data.nav_predictions_enabled ?? prev.navPredictionsEnabled,
           navVipEnabled: data.nav_vip_enabled ?? prev.navVipEnabled,
           navContactEnabled: data.nav_contact_enabled ?? prev.navContactEnabled,
+          allowLogin: data.allow_login ?? prev.allowLogin,
         }))
       }
       setLoadingSettings(false)
@@ -88,12 +90,7 @@ export default function Navbar() {
             )}
           </button>
 
-          <Link
-            to="/login"
-            className="px-4 py-2 rounded-xl border border-slate-300 hover:border-sky-400 transition text-sm text-slate-700"
-          >
-            Login
-          </Link>
+          {/* Login removed from navbar — admin login available at /admin */}
 
           {siteSettings.navVipEnabled ? (
             <Link
@@ -147,9 +144,7 @@ export default function Navbar() {
               </nav>
 
               <div className="mt-6 space-y-3">
-                <Link to="/login" onClick={() => setMobileOpen(false)} className="block w-full text-center px-4 py-3 rounded-xl border border-slate-200 hover:border-sky-300 text-slate-800">
-                  Login
-                </Link>
+                {/* Login removed from mobile nav — admin login available at /admin */}
 
                 {siteSettings.navVipEnabled ? (
                   <Link to="/vip" onClick={() => setMobileOpen(false)} className="block w-full text-center px-4 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold">

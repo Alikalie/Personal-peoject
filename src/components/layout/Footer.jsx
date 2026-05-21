@@ -24,6 +24,7 @@ export default function Footer() {
   async function loadFooterContent() {
     setLoadingFooter(true)
     const { data: settingsRes, error: settingsError } = await supabase.from("site_settings").select("*").maybeSingle()
+    const { data: contactsData, error: contactsError } = await supabase.from('contact_messages').select('*').order('id', { ascending: true })
 
     if (!settingsError && settingsRes) {
       if (settingsRes.footer_text) setFooterText(settingsRes.footer_text)
@@ -36,10 +37,14 @@ export default function Footer() {
       })
     }
 
-    setSupportContacts([
-      { id: "fallback-1", label: "Email", detail: "alikaliefofanah0@gmal.com" },
-      { id: "fallback-2", label: "WhatsApp", detail: "+232 77864684" },
-    ])
+    if (!contactsError && contactsData && contactsData.length) {
+      setSupportContacts(contactsData.map((c) => ({ id: c.id, label: c.label, detail: c.detail, icon: c.icon })))
+    } else {
+      setSupportContacts([
+        { id: "fallback-1", label: "Email", detail: "alikaliefofanah0@gmal.com" },
+        { id: "fallback-2", label: "WhatsApp", detail: "+232 77864684" },
+      ])
+    }
 
     setLoadingFooter(false)
   }

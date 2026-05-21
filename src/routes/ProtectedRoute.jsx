@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
-import { Navigate } from "react-router-dom"
 import { supabase } from "../lib/supabase"
+import AdminLoginPage from "../pages/admin/AdminLoginPage"
 
 export default function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true)
@@ -18,20 +18,18 @@ export default function ProtectedRoute({ children }) {
 
       // If user is authenticated, grant admin access as requested
       if (user) {
-        // We will grant access to all logged in users for now
-        setAuthorized(true)
+        // Check admin status from a trusted source: `admin_users` or `profiles.role`
+        const [{ data: adminRecord }, { data: profileRecord }] = await Promise.all([
+          supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle(),
+          supabase.from("profiles").select("role, is_admin").eq("id", user.id).maybeSingle(),
+        ])
 
-        // Try to optionally update or create their profile as super_admin
-        const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle()
-        if (profile) {
-          await supabase.from("profiles").update({ role: "super_admin", is_admin: true }).eq("id", user.id)
+        const isAdmin = (adminRecord && adminRecord.user_id === user.id) || (profileRecord && (profileRecord.role === "super_admin" || profileRecord.is_admin === true))
+
+        if (isAdmin) {
+          setAuthorized(true)
         } else {
-          await supabase.from("profiles").insert([{
-            id: user.id,
-            email: user.email,
-            role: "super_admin",
-            is_admin: true,
-          }])
+          setAuthorized(false)
         }
       } else {
         setAuthorized(false)
@@ -56,17 +54,8 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (!authorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-900">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-red-600 mb-2">Access Denied</h1>
-          <p className="text-slate-600 mb-6">Please log in to access the admin dashboard.</p>
-          <a href="/login" className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-            Go to Login
-          </a>
-        </div>
-      </div>
-    )
+    // Render the admin login form inline so visiting /admin shows login
+    return <AdminLoginPage />
   }
 
   return children

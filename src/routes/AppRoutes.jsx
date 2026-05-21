@@ -1,4 +1,9 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { supabase } from "../lib/supabase"
+
+import AdminLoginPage from "../pages/admin/AdminLoginPage"
+import ProtectedAdminRoute from "./ProtectedAdminRoute"
 import PublicLayout from "../components/layout/PublicLayout"
 import AdminLayout from "../components/layout/AdminLayout"
 import ProtectedRoute from "./ProtectedRoute"
@@ -20,6 +25,27 @@ import AdminSettings from "../pages/admin/AdminSettings"
 import AdminVipPlans from "../pages/admin/AdminVipPlans"
 
 export default function AppRoutes() {
+  const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
+
+  useEffect(() => {
+    async function loadAuth() {
+      try {
+        const { data } = await supabase.auth.getUser()
+        const current = data?.user ?? null
+        setUser(current)
+
+        if (current) {
+          const { data: prof } = await supabase.from("profiles").select("*").eq("id", current.id).maybeSingle()
+          setProfile(prof || null)
+        }
+      } catch (err) {
+        console.warn("Failed to load auth", err)
+      }
+    }
+
+    loadAuth()
+  }, [])
   return (
     <Routes>
       <Route element={<PublicLayout />}>
@@ -31,6 +57,17 @@ export default function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
       </Route>
 
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedAdminRoute user={user} profile={profile}>
+            <AdminDashboard />
+          </ProtectedAdminRoute>
+        }
+      />
+
       <Route
         path="/admin"
         element={
@@ -39,7 +76,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<AdminDashboard />} />
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="predictions" element={<AdminPredictions />} />
         <Route path="matches" element={<AdminMatches />} />
         <Route path="users" element={<AdminUsers />} />
